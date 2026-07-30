@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/login/page": "/login",
+  "/page": "/",
+  "/register/page": "/register",
+  "/dashboard/conversations/[id]/page": "/dashboard/conversations/[id]",
+  "/dashboard/conversations/page": "/dashboard/conversations",
+  "/dashboard/services/page": "/dashboard/services",
+  "/dashboard/faqs/page": "/dashboard/faqs",
+  "/dashboard/settings/page": "/dashboard/settings",
+  "/dashboard/products/page": "/dashboard/products",
+  "/dashboard/page": "/dashboard"
+}

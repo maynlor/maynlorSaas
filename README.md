@@ -8,14 +8,14 @@ Plataforma SaaS multiempresa para asistentes de IA de atención al cliente. Ver 
 pnpm install
 docker compose up -d
 pnpm --filter backend migrate:up
-pnpm --filter backend dev
+pnpm --filter backend dev   # API en http://localhost:3000
+pnpm --filter web dev       # Panel en http://localhost:3001
 ```
-
-El servidor arranca en `http://localhost:3000`.
 
 ## Estructura
 
 - `apps/backend` — API en Node/Express/TypeScript, Clean Architecture (domain/application/infrastructure/presentation/shared), multi-tenant.
+- `apps/web` — Panel de administración en Next.js (App Router) + Tailwind, componentes estilo shadcn/ui. Login/registro, CRUD de productos/servicios/FAQ, visor de conversaciones y vinculación de WhatsApp. Configurar `NEXT_PUBLIC_API_URL` (ver `apps/web/.env.example`).
 - `packages/` — código compartido entre apps (reservado, vacío por ahora).
 
 ## Módulo de referencia: Businesses

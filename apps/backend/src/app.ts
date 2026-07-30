@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import cors from "cors";
 import type { IDbClient } from "./shared/database/DbClient.js";
 import type { ILogger } from "./shared/logger/Logger.js";
 import { createRequestLogger } from "./presentation/middlewares/requestLogger.js";
@@ -32,9 +33,11 @@ export function createApp(
     apiVersion: "v21.0",
   },
   whatsAppClientOverride?: WhatsAppClient,
+  corsOrigin: string = "http://localhost:3001",
 ): Express {
   const app = express();
 
+  app.use(cors({ origin: corsOrigin }));
   app.use(
     express.json({
       verify: (req, _res, buf) => {

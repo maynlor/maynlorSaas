@@ -14,6 +14,7 @@ const envSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default("v21.0"),
+  WEB_ORIGIN: z.string().default("http://localhost:3001"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -35,4 +36,5 @@ export const config = {
   whatsappAccessToken: parsed.data.WHATSAPP_ACCESS_TOKEN,
   whatsappAppSecret: parsed.data.WHATSAPP_APP_SECRET,
   whatsappApiVersion: parsed.data.WHATSAPP_API_VERSION,
+  webOrigin: parsed.data.WEB_ORIGIN,
 };

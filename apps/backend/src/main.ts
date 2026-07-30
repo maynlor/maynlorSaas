@@ -19,6 +19,8 @@ async function main(): Promise<void> {
       appSecret: config.whatsappAppSecret,
       apiVersion: config.whatsappApiVersion,
     },
+    undefined,
+    config.webOrigin,
   );
 
   app.listen(config.port, () => {
