@@ -44,7 +44,7 @@ export function createApp(
 ): Express {
   const app = express();
 
-  app.use(cors({ origin: corsOrigin }));
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(
     express.json({
       verify: (req, _res, buf) => {

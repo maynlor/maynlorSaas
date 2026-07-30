@@ -10,7 +10,7 @@ async function main(): Promise<void> {
   const app = createApp(
     db,
     logger,
-    { jwtSecret: config.jwtSecret, jwtExpiresIn: config.jwtExpiresIn },
+    { jwtSecret: config.jwtSecret, jwtExpiresIn: config.jwtExpiresIn, nodeEnv: config.nodeEnv },
     { openaiApiKey: config.openaiApiKey, openaiModel: config.openaiModel },
     undefined,
     {

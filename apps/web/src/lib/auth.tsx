@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { api, clearToken, getToken, setToken } from "./api";
+import { api } from "./api";
 
 export interface AuthUser {
   id: string;
@@ -25,7 +25,7 @@ interface AuthState {
     business: { name: string; email: string; slug: string };
     user: { email: string; password: string };
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshBusiness: () => Promise<void>;
 }
 
@@ -37,17 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadSession = useCallback(async () => {
-    if (!getToken()) {
-      setLoading(false);
-      return;
-    }
     try {
       const me = await api<AuthUser>("/auth/me");
       const biz = await api<AuthBusiness>("/businesses/me");
       setUser(me);
       setBusiness(biz);
     } catch {
-      clearToken();
       setUser(null);
       setBusiness(null);
     } finally {
@@ -61,11 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const result = await api<{ token: string; user: AuthUser }>("/auth/login", {
+      await api<{ user: AuthUser }>("/auth/login", {
         method: "POST",
         body: { email, password },
       });
-      setToken(result.token);
       await loadSession();
     },
     [loadSession],
@@ -76,20 +70,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       business: { name: string; email: string; slug: string };
       user: { email: string; password: string };
     }) => {
-      const result = await api<{ token: string; user: AuthUser; business: AuthBusiness }>(
-        "/auth/register",
-        { method: "POST", body: input },
-      );
-      setToken(result.token);
+      await api<{ user: AuthUser; business: AuthBusiness }>("/auth/register", {
+        method: "POST",
+        body: input,
+      });
       await loadSession();
     },
     [loadSession],
   );
 
-  const logout = useCallback(() => {
-    clearToken();
-    setUser(null);
-    setBusiness(null);
+  const logout = useCallback(async () => {
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } finally {
+      setUser(null);
+      setBusiness(null);
+    }
   }, []);
 
   const refreshBusiness = useCallback(async () => {

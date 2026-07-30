@@ -64,8 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             variant="outline"
             className="w-full"
             onClick={() => {
-              logout();
-              router.replace("/login");
+              void logout().finally(() => router.replace("/login"));
             }}
           >
             Cerrar sesión

@@ -86,4 +86,37 @@ describe("auth flow (register -> login -> me)", () => {
     const res = await request(app).get("/auth/me");
     expect(res.status).toBe(401);
   });
+
+  it("sets an httpOnly auth cookie on login and authenticates subsequent requests with it", async () => {
+    await request(app).post("/auth/register").send(registerPayload);
+
+    const agent = request.agent(app);
+    const loginRes = await agent
+      .post("/auth/login")
+      .send({ email: "owner@acme.com", password: "supersecret" });
+
+    const setCookie = loginRes.headers["set-cookie"];
+    expect(setCookie).toBeDefined();
+    const cookieHeader = (setCookie as unknown as string[]).join(";");
+    expect(cookieHeader).toContain("token=");
+    expect(cookieHeader.toLowerCase()).toContain("httponly");
+
+    const meRes = await agent.get("/auth/me");
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.email).toBe("owner@acme.com");
+  });
+
+  it("clears the auth cookie on logout", async () => {
+    await request(app).post("/auth/register").send(registerPayload);
+
+    const agent = request.agent(app);
+    await agent.post("/auth/login").send({ email: "owner@acme.com", password: "supersecret" });
+    expect((await agent.get("/auth/me")).status).toBe(200);
+
+    const logoutRes = await agent.post("/auth/logout");
+    expect(logoutRes.status).toBe(204);
+
+    const meRes = await agent.get("/auth/me");
+    expect(meRes.status).toBe(401);
+  });
 });
