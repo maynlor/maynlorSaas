@@ -82,8 +82,11 @@ export class SendMessageUseCase {
     await this.messageRepository.save(userMessage);
 
     const tools = this.buildTools?.(businessId) ?? [];
+    const toolNames = new Set(tools.map((tool) => tool.name));
     const systemPrompt = PromptEngine.buildSystemPrompt(business.name, {
-      canSearchProducts: tools.some((tool) => tool.name === "buscar_productos"),
+      canSearchProducts: toolNames.has("buscar_productos"),
+      canSearchServices: toolNames.has("buscar_servicios"),
+      canSearchFaqs: toolNames.has("buscar_faq"),
     });
     const chatMessages: ChatMessage[] = [
       ...history.items.map((m) => ({ role: m.role, content: m.content })),

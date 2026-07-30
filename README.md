@@ -33,9 +33,11 @@ El módulo `apps/backend/src/modules/businesses` es el patrón a copiar para nue
 
 El AI Engine (`apps/backend/src/modules/ai`) expone la abstracción `AIProvider` y la interfaz `AITool`. `OpenAIProvider` implementa el loop de function calling: si el modelo pide una herramienta, la ejecuta y le devuelve el resultado hasta obtener la respuesta final.
 
-Las herramientas viven en el módulo dueño de los datos (p. ej. `buscar_productos` en `modules/products/application/tools/`) y se crean scoped al `businessId` de la conversación, así una empresa nunca puede consultar el catálogo de otra. `app.ts` las inyecta en el módulo de conversaciones vía una factory `(businessId) => AITool[]`.
+Las herramientas viven en el módulo dueño de los datos y se crean scoped al `businessId` de la conversación, así una empresa nunca puede consultar los datos de otra. `app.ts` las inyecta en el módulo de conversaciones vía una factory `(businessId) => AITool[]`.
 
-Módulos actuales: `auth`, `businesses`, `users`, `clients`, `conversations`, `products`, `ai`, `whatsapp` (webhook oficial de Meta).
+Herramientas disponibles: `buscar_productos` (products), `buscar_servicios` (services), `buscar_faq` (knowledge).
+
+Módulos actuales: `auth`, `businesses`, `users`, `clients`, `conversations`, `products`, `services`, `knowledge` (FAQ), `ai`, `whatsapp` (webhook oficial de Meta). Endpoints CRUD autenticados en `/products`, `/services` y `/faqs`.
 
 ## Comandos
 

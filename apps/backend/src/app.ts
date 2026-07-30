@@ -11,6 +11,10 @@ import type { AIProvider } from "./modules/ai/application/providers/AIProvider.j
 import { createClientsModule } from "./modules/clients/clients.module.js";
 import { createProductsModule } from "./modules/products/products.module.js";
 import { createSearchProductsTool } from "./modules/products/application/tools/SearchProductsTool.js";
+import { createServicesModule } from "./modules/services/services.module.js";
+import { createSearchServicesTool } from "./modules/services/application/tools/SearchServicesTool.js";
+import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
+import { createSearchFaqsTool } from "./modules/knowledge/application/tools/SearchFaqsTool.js";
 import { createConversationsModule } from "./modules/conversations/conversations.module.js";
 import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whatsapp/whatsapp.module.js";
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
@@ -44,9 +48,13 @@ export function createApp(
   const businesses = createBusinessesModule(db, auth.authenticate);
   const clients = createClientsModule(db, auth.authenticate);
   const products = createProductsModule(db, auth.authenticate);
+  const services = createServicesModule(db, auth.authenticate);
+  const knowledge = createKnowledgeModule(db, auth.authenticate);
   const aiProvider = createAIProvider(aiConfig, aiProviderOverride);
   const conversations = createConversationsModule(db, auth.authenticate, aiProvider, (businessId) => [
     createSearchProductsTool(products.repository, businessId),
+    createSearchServicesTool(services.repository, businessId),
+    createSearchFaqsTool(knowledge.repository, businessId),
   ]);
   const whatsapp = createWhatsAppModule(
     db,
@@ -62,6 +70,8 @@ export function createApp(
       { path: "/auth", router: auth.router },
       { path: "/clients", router: clients.router },
       { path: "/products", router: products.router },
+      { path: "/services", router: services.router },
+      { path: "/faqs", router: knowledge.router },
       { path: "/conversations", router: conversations.router },
       { path: "/webhooks/whatsapp", router: whatsapp.router },
     ]),
