@@ -1,0 +1,42 @@
+import type { Router, RequestHandler } from "express";
+import type { IDbClient } from "../../shared/database/DbClient.js";
+import type { AIProvider } from "../ai/application/providers/AIProvider.js";
+import { PostgresBusinessRepository } from "../businesses/infrastructure/persistence/PostgresBusinessRepository.js";
+import { PostgresClientRepository } from "../clients/infrastructure/persistence/PostgresClientRepository.js";
+import { PostgresConversationRepository } from "./infrastructure/persistence/PostgresConversationRepository.js";
+import { PostgresMessageRepository } from "./infrastructure/persistence/PostgresMessageRepository.js";
+import { SendMessageUseCase, type AIToolsFactory } from "./application/use-cases/SendMessageUseCase.js";
+import { ListConversationsUseCase } from "./application/use-cases/ListConversationsUseCase.js";
+import { GetConversationMessagesUseCase } from "./application/use-cases/GetConversationMessagesUseCase.js";
+import { ConversationController } from "./presentation/ConversationController.js";
+import { buildConversationRouter } from "./presentation/conversation.routes.js";
+
+export function createConversationsModule(
+  db: IDbClient,
+  authenticate: RequestHandler,
+  aiProvider: AIProvider,
+  toolsFactory?: AIToolsFactory,
+): { router: Router; sendMessageUseCase: SendMessageUseCase } {
+  const businessRepository = new PostgresBusinessRepository(db);
+  const clientRepository = new PostgresClientRepository(db);
+  const conversationRepository = new PostgresConversationRepository(db);
+  const messageRepository = new PostgresMessageRepository(db);
+
+  const sendMessageUseCase = new SendMessageUseCase(
+    businessRepository,
+    clientRepository,
+    conversationRepository,
+    messageRepository,
+    aiProvider,
+    toolsFactory,
+  );
+  const listUseCase = new ListConversationsUseCase(conversationRepository);
+  const getMessagesUseCase = new GetConversationMessagesUseCase(
+    conversationRepository,
+    messageRepository,
+  );
+
+  const controller = new ConversationController(sendMessageUseCase, listUseCase, getMessagesUseCase);
+
+  return { router: buildConversationRouter(controller, authenticate), sendMessageUseCase };
+}
