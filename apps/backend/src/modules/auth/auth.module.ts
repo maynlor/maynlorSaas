@@ -6,6 +6,9 @@ import { JwtTokenService } from "../../shared/security/JwtTokenService.js";
 import { createAuthenticateMiddleware } from "../../presentation/middlewares/authenticate.js";
 import { PostgresBusinessRepository } from "../businesses/infrastructure/persistence/PostgresBusinessRepository.js";
 import { PostgresUserRepository } from "../users/infrastructure/persistence/PostgresUserRepository.js";
+import { PostgresPlanRepository } from "../subscriptions/infrastructure/persistence/PostgresPlanRepository.js";
+import { PostgresSubscriptionRepository } from "../subscriptions/infrastructure/persistence/PostgresSubscriptionRepository.js";
+import type { PaymentProvider } from "../subscriptions/application/providers/PaymentProvider.js";
 import { RegisterUseCase } from "./application/use-cases/RegisterUseCase.js";
 import { LoginUseCase } from "./application/use-cases/LoginUseCase.js";
 import { GetCurrentUserUseCase } from "./application/use-cases/GetCurrentUserUseCase.js";
@@ -21,6 +24,7 @@ export function createAuthModule(
   db: IDbClient,
   logger: ILogger,
   authConfig: AuthModuleConfig,
+  paymentProvider: PaymentProvider,
 ): { router: Router; authenticate: RequestHandler } {
   const passwordHasher = new BcryptPasswordHasher();
   const tokenService = new JwtTokenService(authConfig.jwtSecret, authConfig.jwtExpiresIn);
@@ -31,6 +35,9 @@ export function createAuthModule(
     db,
     (trx) => new PostgresBusinessRepository(trx),
     (trx) => new PostgresUserRepository(trx),
+    (trx) => new PostgresPlanRepository(trx),
+    (trx) => new PostgresSubscriptionRepository(trx),
+    paymentProvider,
     passwordHasher,
     tokenService,
     logger,

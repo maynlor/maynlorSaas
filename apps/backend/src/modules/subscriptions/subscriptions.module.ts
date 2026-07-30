@@ -2,7 +2,6 @@ import type { Router, RequestHandler } from "express";
 import type { IDbClient } from "../../shared/database/DbClient.js";
 import { PostgresPlanRepository } from "./infrastructure/persistence/PostgresPlanRepository.js";
 import { PostgresSubscriptionRepository } from "./infrastructure/persistence/PostgresSubscriptionRepository.js";
-import { ManualPaymentProvider } from "./infrastructure/providers/ManualPaymentProvider.js";
 import type { PaymentProvider } from "./application/providers/PaymentProvider.js";
 import { ListPlansUseCase } from "./application/use-cases/ListPlansUseCase.js";
 import { GetCurrentSubscriptionUseCase } from "./application/use-cases/GetCurrentSubscriptionUseCase.js";
@@ -17,11 +16,10 @@ import { PlanLimitReader } from "./application/services/PlanLimitReader.js";
 export function createSubscriptionsModule(
   db: IDbClient,
   authenticate: RequestHandler,
-  paymentProviderOverride?: PaymentProvider,
+  paymentProvider: PaymentProvider,
 ): { planRouter: Router; subscriptionRouter: Router; planLimitReader: PlanLimitReader } {
   const planRepository = new PostgresPlanRepository(db);
   const subscriptionRepository = new PostgresSubscriptionRepository(db);
-  const paymentProvider = paymentProviderOverride ?? new ManualPaymentProvider();
   const planLimitReader = new PlanLimitReader(subscriptionRepository, planRepository);
 
   const listPlansUseCase = new ListPlansUseCase(planRepository);

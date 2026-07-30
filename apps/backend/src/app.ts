@@ -21,6 +21,7 @@ import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whats
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
 import { createSubscriptionsModule } from "./modules/subscriptions/subscriptions.module.js";
 import type { PaymentProvider } from "./modules/subscriptions/application/providers/PaymentProvider.js";
+import { ManualPaymentProvider } from "./modules/subscriptions/infrastructure/providers/ManualPaymentProvider.js";
 import { createMemoryModule } from "./modules/memory/memory.module.js";
 import { createGuardarMemoriaTool } from "./modules/memory/application/tools/GuardarMemoriaTool.js";
 import { createBuscarMemoriaTool } from "./modules/memory/application/tools/BuscarMemoriaTool.js";
@@ -53,10 +54,11 @@ export function createApp(
   );
   app.use(createRequestLogger(logger));
 
-  const auth = createAuthModule(db, logger, authConfig);
+  const paymentProvider = paymentProviderOverride ?? new ManualPaymentProvider();
+  const auth = createAuthModule(db, logger, authConfig, paymentProvider);
   const businesses = createBusinessesModule(db, auth.authenticate);
   const clients = createClientsModule(db, auth.authenticate);
-  const subscriptions = createSubscriptionsModule(db, auth.authenticate, paymentProviderOverride);
+  const subscriptions = createSubscriptionsModule(db, auth.authenticate, paymentProvider);
   const products = createProductsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const services = createServicesModule(db, auth.authenticate, subscriptions.planLimitReader);
   const knowledge = createKnowledgeModule(db, auth.authenticate);

@@ -79,8 +79,22 @@ describe("Subscriptions flow", () => {
     expect(meResponse.body.plan.slug).toBe("pro");
   });
 
-  it("returns 404 when there is no current subscription", async () => {
+  it("auto-subscribes a newly registered business to the starter plan", async () => {
     const token = await registerBusiness();
+
+    const response = await request(app)
+      .get("/subscriptions/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.plan.slug).toBe("starter");
+    expect(response.body.status).toBe("active");
+  });
+
+  it("returns 404 when the current subscription was canceled", async () => {
+    const token = await registerBusiness();
+
+    await request(app).delete("/subscriptions/me").set("Authorization", `Bearer ${token}`);
 
     const response = await request(app)
       .get("/subscriptions/me")

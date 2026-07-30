@@ -11,9 +11,15 @@ import type { IBusinessRepository } from "../../../businesses/application/reposi
 import { User } from "../../../users/domain/User.js";
 import { UserMapper } from "../../../users/application/mappers/UserMapper.js";
 import type { IUserRepository } from "../../../users/application/repositories/IUserRepository.js";
+import type { IPlanRepository } from "../../../subscriptions/application/repositories/IPlanRepository.js";
+import type { ISubscriptionRepository } from "../../../subscriptions/application/repositories/ISubscriptionRepository.js";
+import type { PaymentProvider } from "../../../subscriptions/application/providers/PaymentProvider.js";
+import { Subscription } from "../../../subscriptions/domain/Subscription.js";
 import { Password } from "../../domain/value-objects/Password.js";
 import type { RegisterInputDTO } from "../dtos/RegisterDTO.js";
 import type { AuthResponseDTO } from "../dtos/AuthResponseDTO.js";
+
+const DEFAULT_PLAN_SLUG = "starter";
 
 export type RepositoryFactory<T> = (db: IDbClient) => T;
 
@@ -22,6 +28,9 @@ export class RegisterUseCase {
     private readonly db: IDbClient,
     private readonly createBusinessRepository: RepositoryFactory<IBusinessRepository>,
     private readonly createUserRepository: RepositoryFactory<IUserRepository>,
+    private readonly createPlanRepository: RepositoryFactory<IPlanRepository>,
+    private readonly createSubscriptionRepository: RepositoryFactory<ISubscriptionRepository>,
+    private readonly paymentProvider: PaymentProvider,
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
     private readonly logger: ILogger,
@@ -71,6 +80,8 @@ export class RegisterUseCase {
         const user = userResult.value;
         await userRepo.save(user);
 
+        await this.subscribeToDefaultPlan(trx, business.id);
+
         return { user };
       });
 
@@ -96,5 +107,28 @@ export class RegisterUseCase {
       }
       throw err;
     }
+  }
+
+  private async subscribeToDefaultPlan(trx: IDbClient, businessId: string): Promise<void> {
+    const planRepository = this.createPlanRepository(trx);
+    const plan = await planRepository.findBySlug(DEFAULT_PLAN_SLUG);
+    if (!plan) {
+      this.logger.warn(`Default plan "${DEFAULT_PLAN_SLUG}" not found; business created without a subscription`, {
+        businessId,
+      });
+      return;
+    }
+
+    const activation = await this.paymentProvider.activateSubscription({ businessId, plan });
+    const subscription = Subscription.create({
+      businessId,
+      planId: plan.id,
+      status: activation.status,
+      currentPeriodStart: activation.currentPeriodStart,
+      currentPeriodEnd: activation.currentPeriodEnd,
+    });
+
+    const subscriptionRepository = this.createSubscriptionRepository(trx);
+    await subscriptionRepository.save(subscription);
   }
 }
