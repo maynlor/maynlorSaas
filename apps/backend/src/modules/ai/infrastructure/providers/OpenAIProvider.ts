@@ -2,6 +2,7 @@ import type { AIProvider, GenerateTextInput } from "../../application/providers/
 import type { AITool } from "../../application/tools/AITool.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_AUDIO_TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
 const MAX_TOOL_ROUNDS = 5;
 
 interface OpenAIToolCall {
@@ -61,6 +62,29 @@ export class OpenAIProvider implements AIProvider {
     }
 
     throw new Error(`OpenAI tool calling exceeded ${MAX_TOOL_ROUNDS} rounds`);
+  }
+
+  async transcribeAudio(audio: Buffer, mimeType: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
+
+    const form = new FormData();
+    form.append("model", "whisper-1");
+    form.append("file", new Blob([audio], { type: mimeType }), "audio");
+
+    const response = await fetch(OPENAI_AUDIO_TRANSCRIPTIONS_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+      body: form,
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI audio transcription failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as { text: string };
+    return data.text;
   }
 
   private async requestCompletion(

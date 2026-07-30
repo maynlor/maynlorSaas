@@ -10,11 +10,13 @@ import { ListConversationsUseCase } from "./application/use-cases/ListConversati
 import { GetConversationMessagesUseCase } from "./application/use-cases/GetConversationMessagesUseCase.js";
 import { ConversationController } from "./presentation/ConversationController.js";
 import { buildConversationRouter } from "./presentation/conversation.routes.js";
+import type { PlanLimitReader } from "../subscriptions/application/services/PlanLimitReader.js";
 
 export function createConversationsModule(
   db: IDbClient,
   authenticate: RequestHandler,
   aiProvider: AIProvider,
+  planLimitReader: PlanLimitReader,
   toolsFactory?: AIToolsFactory,
 ): { router: Router; sendMessageUseCase: SendMessageUseCase } {
   const businessRepository = new PostgresBusinessRepository(db);
@@ -28,6 +30,7 @@ export function createConversationsModule(
     conversationRepository,
     messageRepository,
     aiProvider,
+    planLimitReader,
     toolsFactory,
   );
   const listUseCase = new ListConversationsUseCase(conversationRepository);

@@ -5,6 +5,7 @@ import { PostgresBusinessRepository } from "../businesses/infrastructure/persist
 import { PostgresClientRepository } from "../clients/infrastructure/persistence/PostgresClientRepository.js";
 import { PostgresConversationRepository } from "../conversations/infrastructure/persistence/PostgresConversationRepository.js";
 import type { SendMessageUseCase } from "../conversations/application/use-cases/SendMessageUseCase.js";
+import type { AIProvider } from "../ai/application/providers/AIProvider.js";
 import { MetaWhatsAppClient } from "./infrastructure/clients/MetaWhatsAppClient.js";
 import type { WhatsAppClient } from "./application/providers/WhatsAppClient.js";
 import { ReceiveWhatsAppMessageUseCase } from "./application/use-cases/ReceiveWhatsAppMessageUseCase.js";
@@ -24,6 +25,7 @@ export function createWhatsAppModule(
   logger: ILogger,
   config: WhatsAppModuleConfig,
   sendMessageUseCase: SendMessageUseCase,
+  aiProvider: AIProvider,
   whatsAppClientOverride?: WhatsAppClient,
 ): { router: Router } {
   const businessRepository = new PostgresBusinessRepository(db);
@@ -38,6 +40,7 @@ export function createWhatsAppModule(
     conversationRepository,
     sendMessageUseCase,
     whatsAppClient,
+    aiProvider,
     logger,
   );
 

@@ -13,4 +13,5 @@ export interface GenerateTextInput {
 
 export interface AIProvider {
   generateText(input: GenerateTextInput): Promise<string>;
+  transcribeAudio(audio: Buffer, mimeType: string): Promise<string>;
 }

@@ -4,15 +4,64 @@ import type { IClientRepository } from "../../../clients/application/repositorie
 import { Client } from "../../../clients/domain/Client.js";
 import type { IConversationRepository } from "../../../conversations/application/repositories/IConversationRepository.js";
 import type { SendMessageUseCase } from "../../../conversations/application/use-cases/SendMessageUseCase.js";
+import type { AIProvider } from "../../../ai/application/providers/AIProvider.js";
 import type { WhatsAppClient } from "../providers/WhatsAppClient.js";
 
 const WHATSAPP_CHANNEL = "whatsapp";
 
+export type WhatsAppMediaType = "image" | "audio" | "video" | "document";
+
+export interface WhatsAppIncomingMedia {
+  type: WhatsAppMediaType;
+  mediaId: string;
+  caption?: string | undefined;
+  filename?: string | undefined;
+}
+
 export interface ReceiveWhatsAppMessageInput {
   phoneNumberId: string;
   fromPhone: string;
-  messageText: string;
   contactName?: string | undefined;
+  messageText?: string | undefined;
+  media?: WhatsAppIncomingMedia | undefined;
+}
+
+async function resolveMessageText(
+  input: ReceiveWhatsAppMessageInput,
+  whatsAppClient: WhatsAppClient,
+  aiProvider: AIProvider,
+  logger: ILogger,
+): Promise<string | null> {
+  if (input.messageText) return input.messageText;
+  if (!input.media) return null;
+
+  const { media } = input;
+  switch (media.type) {
+    case "audio": {
+      try {
+        const file = await whatsAppClient.downloadMedia(media.mediaId);
+        const transcript = await aiProvider.transcribeAudio(file.buffer, file.mimeType);
+        return transcript.trim() || "[Nota de voz sin contenido reconocible]";
+      } catch (err) {
+        logger.error("Failed to transcribe an incoming WhatsApp audio message", {
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        return "[El cliente envió una nota de voz que no se pudo transcribir]";
+      }
+    }
+    case "image":
+      return media.caption
+        ? `[El cliente envió una imagen con el comentario]: ${media.caption}`
+        : "[El cliente envió una imagen sin comentario]";
+    case "document":
+      return `[El cliente envió un documento${media.filename ? `: ${media.filename}` : ""}]${
+        media.caption ? ` con el comentario: ${media.caption}` : ""
+      }`;
+    case "video":
+      return media.caption
+        ? `[El cliente envió un video con el comentario]: ${media.caption}`
+        : "[El cliente envió un video sin comentario]";
+  }
 }
 
 /**
@@ -26,6 +75,7 @@ export class ReceiveWhatsAppMessageUseCase {
     private readonly conversationRepository: IConversationRepository,
     private readonly sendMessageUseCase: SendMessageUseCase,
     private readonly whatsAppClient: WhatsAppClient,
+    private readonly aiProvider: AIProvider,
     private readonly logger: ILogger,
   ) {}
 
@@ -36,6 +86,19 @@ export class ReceiveWhatsAppMessageUseCase {
     if (!business) {
       this.logger.warn("Received WhatsApp message for an unknown phone_number_id", {
         phoneNumberId: input.phoneNumberId,
+      });
+      return;
+    }
+
+    const messageText = await resolveMessageText(
+      input,
+      this.whatsAppClient,
+      this.aiProvider,
+      this.logger,
+    );
+    if (!messageText) {
+      this.logger.warn("Received an unsupported WhatsApp message; ignoring", {
+        businessId: business.id,
       });
       return;
     }
@@ -65,7 +128,7 @@ export class ReceiveWhatsAppMessageUseCase {
     );
 
     const result = await this.sendMessageUseCase.execute(business.id, {
-      message: input.messageText,
+      message: messageText,
       conversationId: conversation?.id,
       clientId: conversation ? undefined : client.id,
       channel: WHATSAPP_CHANNEL,

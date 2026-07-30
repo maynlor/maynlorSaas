@@ -67,4 +67,12 @@ export class PostgresConversationRepository implements IConversationRepository {
     const row = result.rows[0];
     return row ? ConversationFactory.toDomain(row) : null;
   }
+
+  async countCreatedSince(businessId: string, since: Date): Promise<number> {
+    const result = await this.db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM conversations WHERE business_id = $1 AND created_at >= $2`,
+      [businessId, since],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
 }

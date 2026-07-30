@@ -12,15 +12,17 @@ import { PlanController } from "./presentation/PlanController.js";
 import { buildPlanRouter } from "./presentation/plan.routes.js";
 import { SubscriptionController } from "./presentation/SubscriptionController.js";
 import { buildSubscriptionRouter } from "./presentation/subscription.routes.js";
+import { PlanLimitReader } from "./application/services/PlanLimitReader.js";
 
 export function createSubscriptionsModule(
   db: IDbClient,
   authenticate: RequestHandler,
   paymentProviderOverride?: PaymentProvider,
-): { planRouter: Router; subscriptionRouter: Router } {
+): { planRouter: Router; subscriptionRouter: Router; planLimitReader: PlanLimitReader } {
   const planRepository = new PostgresPlanRepository(db);
   const subscriptionRepository = new PostgresSubscriptionRepository(db);
   const paymentProvider = paymentProviderOverride ?? new ManualPaymentProvider();
+  const planLimitReader = new PlanLimitReader(subscriptionRepository, planRepository);
 
   const listPlansUseCase = new ListPlansUseCase(planRepository);
   const getCurrentUseCase = new GetCurrentSubscriptionUseCase(subscriptionRepository, planRepository);
@@ -41,5 +43,6 @@ export function createSubscriptionsModule(
   return {
     planRouter: buildPlanRouter(planController),
     subscriptionRouter: buildSubscriptionRouter(subscriptionController, authenticate),
+    planLimitReader,
   };
 }

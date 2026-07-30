@@ -25,6 +25,7 @@ const fakeAIProvider: AIProvider = {
     receivedInputs.push(input);
     return `[fake reply #${receivedInputs.length}]`;
   },
+  transcribeAudio: async () => "[fake transcription]",
 };
 
 describe("Conversations flow (client -> messages -> memory -> inbox)", () => {

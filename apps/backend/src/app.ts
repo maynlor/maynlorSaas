@@ -21,6 +21,9 @@ import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whats
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
 import { createSubscriptionsModule } from "./modules/subscriptions/subscriptions.module.js";
 import type { PaymentProvider } from "./modules/subscriptions/application/providers/PaymentProvider.js";
+import { createMemoryModule } from "./modules/memory/memory.module.js";
+import { createGuardarMemoriaTool } from "./modules/memory/application/tools/GuardarMemoriaTool.js";
+import { createBuscarMemoriaTool } from "./modules/memory/application/tools/BuscarMemoriaTool.js";
 
 export function createApp(
   db: IDbClient,
@@ -53,23 +56,33 @@ export function createApp(
   const auth = createAuthModule(db, logger, authConfig);
   const businesses = createBusinessesModule(db, auth.authenticate);
   const clients = createClientsModule(db, auth.authenticate);
-  const products = createProductsModule(db, auth.authenticate);
-  const services = createServicesModule(db, auth.authenticate);
+  const subscriptions = createSubscriptionsModule(db, auth.authenticate, paymentProviderOverride);
+  const products = createProductsModule(db, auth.authenticate, subscriptions.planLimitReader);
+  const services = createServicesModule(db, auth.authenticate, subscriptions.planLimitReader);
   const knowledge = createKnowledgeModule(db, auth.authenticate);
+  const memory = createMemoryModule(db, auth.authenticate);
   const aiProvider = createAIProvider(aiConfig, aiProviderOverride);
-  const conversations = createConversationsModule(db, auth.authenticate, aiProvider, (businessId) => [
-    createSearchProductsTool(products.repository, businessId),
-    createSearchServicesTool(services.repository, businessId),
-    createSearchFaqsTool(knowledge.repository, businessId),
-  ]);
+  const conversations = createConversationsModule(
+    db,
+    auth.authenticate,
+    aiProvider,
+    subscriptions.planLimitReader,
+    (businessId, clientId) => [
+      createSearchProductsTool(products.repository, businessId),
+      createSearchServicesTool(services.repository, businessId),
+      createSearchFaqsTool(knowledge.repository, businessId),
+      createBuscarMemoriaTool(memory.repository, businessId, clientId),
+      createGuardarMemoriaTool(memory.repository, businessId, clientId),
+    ],
+  );
   const whatsapp = createWhatsAppModule(
     db,
     logger,
     whatsappConfig,
     conversations.sendMessageUseCase,
+    aiProvider,
     whatsAppClientOverride,
   );
-  const subscriptions = createSubscriptionsModule(db, auth.authenticate, paymentProviderOverride);
 
   app.use(
     buildRootRouter([
@@ -83,6 +96,7 @@ export function createApp(
       { path: "/webhooks/whatsapp", router: whatsapp.router },
       { path: "/plans", router: subscriptions.planRouter },
       { path: "/subscriptions", router: subscriptions.subscriptionRouter },
+      { path: "/", router: memory.router },
     ]),
   );
 

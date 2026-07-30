@@ -9,7 +9,13 @@ import type { IClientRepository } from "@modules/clients/application/repositorie
 import type { IConversationRepository } from "@modules/conversations/application/repositories/IConversationRepository.js";
 import type { IMessageRepository } from "@modules/conversations/application/repositories/IMessageRepository.js";
 import type { AIProvider } from "@modules/ai/application/providers/AIProvider.js";
-import { NotFoundError, ValidationError, InfrastructureError } from "@shared/errors/AppError.js";
+import type { PlanLimitReader } from "@modules/subscriptions/application/services/PlanLimitReader.js";
+import {
+  NotFoundError,
+  ValidationError,
+  InfrastructureError,
+  PlanLimitExceededError,
+} from "@shared/errors/AppError.js";
 
 const businessId = "b1";
 
@@ -42,6 +48,7 @@ function mocks() {
     findById: vi.fn(),
     findAll: vi.fn(),
     findLatestByClientAndChannel: vi.fn().mockResolvedValue(null),
+    countCreatedSince: vi.fn().mockResolvedValue(0),
   };
   const messageRepository: IMessageRepository = {
     save: vi.fn().mockResolvedValue(undefined),
@@ -49,20 +56,38 @@ function mocks() {
   };
   const aiProvider: AIProvider = {
     generateText: vi.fn().mockResolvedValue("¡Hola! ¿En qué puedo ayudarte?"),
+    transcribeAudio: vi.fn().mockResolvedValue(""),
   };
-  return { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider };
+  const planLimitReader = {
+    getLimit: vi.fn().mockResolvedValue(null),
+  } as unknown as PlanLimitReader;
+  return {
+    businessRepository,
+    clientRepository,
+    conversationRepository,
+    messageRepository,
+    aiProvider,
+    planLimitReader,
+  };
 }
 
 describe("SendMessageUseCase", () => {
   it("starts a new conversation when clientId is given and no conversationId", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     const useCase = new SendMessageUseCase(
       businessRepository,
       clientRepository,
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, { message: "Hola", clientId: "c1" });
@@ -74,8 +99,14 @@ describe("SendMessageUseCase", () => {
   });
 
   it("continues an existing conversation, sending prior history to the provider", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     const conversation = Conversation.create({ businessId, clientId: "c1" });
     conversationRepository.findById = vi.fn().mockResolvedValue(conversation);
     const priorMessage = Message.create({
@@ -94,6 +125,7 @@ describe("SendMessageUseCase", () => {
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, {
@@ -114,14 +146,21 @@ describe("SendMessageUseCase", () => {
   });
 
   it("fails with ValidationError when neither conversationId nor clientId are given", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     const useCase = new SendMessageUseCase(
       businessRepository,
       clientRepository,
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, { message: "Hola" });
@@ -131,8 +170,14 @@ describe("SendMessageUseCase", () => {
   });
 
   it("fails with NotFoundError when conversationId does not exist", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     conversationRepository.findById = vi.fn().mockResolvedValue(null);
 
     const useCase = new SendMessageUseCase(
@@ -141,6 +186,7 @@ describe("SendMessageUseCase", () => {
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, {
@@ -153,8 +199,14 @@ describe("SendMessageUseCase", () => {
   });
 
   it("fails with NotFoundError when clientId does not exist", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     clientRepository.findById = vi.fn().mockResolvedValue(null);
 
     const useCase = new SendMessageUseCase(
@@ -163,6 +215,7 @@ describe("SendMessageUseCase", () => {
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, {
@@ -175,8 +228,14 @@ describe("SendMessageUseCase", () => {
   });
 
   it("fails with InfrastructureError when the AI provider throws", async () => {
-    const { businessRepository, clientRepository, conversationRepository, messageRepository, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
     aiProvider.generateText = vi.fn().mockRejectedValue(new Error("network down"));
 
     const useCase = new SendMessageUseCase(
@@ -185,11 +244,70 @@ describe("SendMessageUseCase", () => {
       conversationRepository,
       messageRepository,
       aiProvider,
+      planLimitReader,
     );
 
     const result = await useCase.execute(businessId, { message: "Hola", clientId: "c1" });
 
     expect(result.isFailure).toBe(true);
     expect(result.error).toBeInstanceOf(InfrastructureError);
+  });
+
+  it("fails with PlanLimitExceededError when the monthly conversation quota is reached", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    planLimitReader.getLimit = vi.fn().mockResolvedValue(5);
+    conversationRepository.countCreatedSince = vi.fn().mockResolvedValue(5);
+
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    const result = await useCase.execute(businessId, { message: "Hola", clientId: "c1" });
+
+    expect(result.isFailure).toBe(true);
+    expect(result.error).toBeInstanceOf(PlanLimitExceededError);
+    expect(conversationRepository.save).not.toHaveBeenCalled();
+  });
+
+  it("does not check the conversation quota when continuing an existing conversation", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    const conversation = Conversation.create({ businessId, clientId: "c1" });
+    conversationRepository.findById = vi.fn().mockResolvedValue(conversation);
+
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    const result = await useCase.execute(businessId, {
+      message: "Hola de nuevo",
+      conversationId: conversation.id,
+    });
+
+    expect(result.isSuccess).toBe(true);
+    expect(planLimitReader.getLimit).not.toHaveBeenCalled();
   });
 });

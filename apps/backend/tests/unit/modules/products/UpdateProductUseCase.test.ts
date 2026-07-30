@@ -17,6 +17,7 @@ function createRepositoryMock(overrides: Partial<IProductRepository> = {}): IPro
     findById: vi.fn().mockResolvedValue(buildProduct()),
     findAll: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     search: vi.fn().mockResolvedValue([]),
+    countByBusinessId: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
 }

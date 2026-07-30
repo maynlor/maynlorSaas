@@ -54,6 +54,7 @@ describe("createSearchServicesTool", () => {
       findById: vi.fn(),
       findAll: vi.fn(),
       search: vi.fn().mockResolvedValue([]),
+      countByBusinessId: vi.fn().mockResolvedValue(0),
       ...overrides,
     };
   }

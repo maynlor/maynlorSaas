@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { CreateProductUseCase } from "@modules/products/application/use-cases/CreateProductUseCase.js";
 import type { IProductRepository } from "@modules/products/application/repositories/IProductRepository.js";
-import { DomainError } from "@shared/errors/AppError.js";
+import type { PlanLimitReader } from "@modules/subscriptions/application/services/PlanLimitReader.js";
+import { DomainError, PlanLimitExceededError } from "@shared/errors/AppError.js";
 
 function createRepositoryMock(overrides: Partial<IProductRepository> = {}): IProductRepository {
   return {
@@ -9,8 +10,13 @@ function createRepositoryMock(overrides: Partial<IProductRepository> = {}): IPro
     findById: vi.fn().mockResolvedValue(null),
     findAll: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     search: vi.fn().mockResolvedValue([]),
+    countByBusinessId: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
+}
+
+function createPlanLimitReaderMock(limit: number | null = null): PlanLimitReader {
+  return { getLimit: vi.fn().mockResolvedValue(limit) } as unknown as PlanLimitReader;
 }
 
 const businessId = "b1";
@@ -18,7 +24,7 @@ const businessId = "b1";
 describe("CreateProductUseCase", () => {
   it("creates a product with valid data", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateProductUseCase(repo);
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, {
       name: "Remera negra",
@@ -38,7 +44,7 @@ describe("CreateProductUseCase", () => {
 
   it("normalizes currency to uppercase", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateProductUseCase(repo);
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, { name: "Gorra", price: 100, currency: "usd" });
 
@@ -48,7 +54,7 @@ describe("CreateProductUseCase", () => {
 
   it("fails with a domain error for a negative price", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateProductUseCase(repo);
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, { name: "Remera", price: -1 });
 
@@ -59,12 +65,33 @@ describe("CreateProductUseCase", () => {
 
   it("fails with a domain error for a name shorter than 2 characters", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateProductUseCase(repo);
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, { name: "A", price: 100 });
 
     expect(result.isFailure).toBe(true);
     expect(result.error).toBeInstanceOf(DomainError);
     expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it("fails with a plan limit error when the plan's product quota is reached", async () => {
+    const repo = createRepositoryMock({ countByBusinessId: vi.fn().mockResolvedValue(2) });
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock(2));
+
+    const result = await useCase.execute(businessId, { name: "Remera", price: 100 });
+
+    expect(result.isFailure).toBe(true);
+    expect(result.error).toBeInstanceOf(PlanLimitExceededError);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it("allows creating when under the plan's product quota", async () => {
+    const repo = createRepositoryMock({ countByBusinessId: vi.fn().mockResolvedValue(1) });
+    const useCase = new CreateProductUseCase(repo, createPlanLimitReaderMock(2));
+
+    const result = await useCase.execute(businessId, { name: "Remera", price: 100 });
+
+    expect(result.isSuccess).toBe(true);
+    expect(repo.save).toHaveBeenCalledOnce();
   });
 });

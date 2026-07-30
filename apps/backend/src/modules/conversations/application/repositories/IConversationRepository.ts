@@ -12,4 +12,5 @@ export interface IConversationRepository {
     clientId: string,
     channel: string,
   ): Promise<Conversation | null>;
+  countCreatedSince(businessId: string, since: Date): Promise<number>;
 }

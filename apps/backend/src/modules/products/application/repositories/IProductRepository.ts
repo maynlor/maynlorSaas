@@ -8,4 +8,5 @@ export interface IProductRepository {
     pagination: { limit: number; offset: number },
   ): Promise<{ items: Product[]; total: number }>;
   search(businessId: string, term: string, limit: number): Promise<Product[]>;
+  countByBusinessId(businessId: string): Promise<number>;
 }

@@ -26,6 +26,7 @@ const fakeAIProvider: AIProvider = {
     aiCallCount += 1;
     return `[fake reply #${aiCallCount}]`;
   },
+  transcribeAudio: async () => "[fake transcription]",
 };
 
 const sentMessages: { phoneNumberId: string; to: string; body: string }[] = [];
@@ -33,6 +34,7 @@ const fakeWhatsAppClient: WhatsAppClient = {
   sendTextMessage: async (phoneNumberId, to, body) => {
     sentMessages.push({ phoneNumberId, to, body });
   },
+  downloadMedia: async () => ({ buffer: Buffer.from(""), mimeType: "application/octet-stream" }),
 };
 
 function buildIncomingMessagePayload(phoneNumberId: string, from: string, text: string) {

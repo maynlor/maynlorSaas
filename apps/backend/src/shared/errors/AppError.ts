@@ -40,3 +40,8 @@ export class InfrastructureError extends AppError {
   readonly code = "INFRASTRUCTURE_ERROR";
   readonly statusCode = 500;
 }
+
+export class PlanLimitExceededError extends AppError {
+  readonly code = "PLAN_LIMIT_EXCEEDED";
+  readonly statusCode = 402;
+}

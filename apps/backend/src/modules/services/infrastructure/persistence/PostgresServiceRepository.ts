@@ -81,4 +81,12 @@ export class PostgresServiceRepository implements IServiceRepository {
     );
     return result.rows.map((row) => ServiceFactory.toDomain(row));
   }
+
+  async countByBusinessId(businessId: string): Promise<number> {
+    const result = await this.db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM services WHERE business_id = $1 AND deleted_at IS NULL`,
+      [businessId],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
 }

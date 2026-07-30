@@ -9,14 +9,16 @@ import { UpdateServiceUseCase } from "./application/use-cases/UpdateServiceUseCa
 import { DeleteServiceUseCase } from "./application/use-cases/DeleteServiceUseCase.js";
 import { ServiceController } from "./presentation/ServiceController.js";
 import { buildServiceRouter } from "./presentation/service.routes.js";
+import type { PlanLimitReader } from "../subscriptions/application/services/PlanLimitReader.js";
 
 export function createServicesModule(
   db: IDbClient,
   authenticate: RequestHandler,
+  planLimitReader: PlanLimitReader,
 ): { router: Router; repository: IServiceRepository } {
   const repository = new PostgresServiceRepository(db);
 
-  const createUseCase = new CreateServiceUseCase(repository);
+  const createUseCase = new CreateServiceUseCase(repository, planLimitReader);
   const getByIdUseCase = new GetServiceByIdUseCase(repository);
   const listUseCase = new ListServicesUseCase(repository);
   const updateUseCase = new UpdateServiceUseCase(repository);

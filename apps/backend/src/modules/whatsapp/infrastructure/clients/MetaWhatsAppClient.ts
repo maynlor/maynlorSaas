@@ -1,4 +1,9 @@
-import type { WhatsAppClient } from "../../application/providers/WhatsAppClient.js";
+import type { WhatsAppClient, WhatsAppMediaFile } from "../../application/providers/WhatsAppClient.js";
+
+interface MetaMediaMetadataResponse {
+  url: string;
+  mime_type: string;
+}
 
 export class MetaWhatsAppClient implements WhatsAppClient {
   constructor(
@@ -31,5 +36,30 @@ export class MetaWhatsAppClient implements WhatsAppClient {
     if (!response.ok) {
       throw new Error(`WhatsApp API request failed with status ${response.status}`);
     }
+  }
+
+  async downloadMedia(mediaId: string): Promise<WhatsAppMediaFile> {
+    if (!this.accessToken) {
+      throw new Error("WHATSAPP_ACCESS_TOKEN is not configured");
+    }
+
+    const metadataResponse = await fetch(
+      `https://graph.facebook.com/${this.apiVersion}/${mediaId}`,
+      { headers: { Authorization: `Bearer ${this.accessToken}` } },
+    );
+    if (!metadataResponse.ok) {
+      throw new Error(`WhatsApp media metadata request failed with status ${metadataResponse.status}`);
+    }
+    const metadata = (await metadataResponse.json()) as MetaMediaMetadataResponse;
+
+    const fileResponse = await fetch(metadata.url, {
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+    });
+    if (!fileResponse.ok) {
+      throw new Error(`WhatsApp media download failed with status ${fileResponse.status}`);
+    }
+
+    const buffer = Buffer.from(await fileResponse.arrayBuffer());
+    return { buffer, mimeType: metadata.mime_type };
   }
 }

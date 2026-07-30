@@ -1,9 +1,24 @@
+export interface WhatsAppMediaObject {
+  id: string;
+  mime_type: string;
+  sha256?: string;
+  caption?: string;
+}
+
+export interface WhatsAppDocumentObject extends WhatsAppMediaObject {
+  filename?: string;
+}
+
 export interface WhatsAppIncomingMessage {
   from: string;
   id: string;
   timestamp: string;
   type: string;
   text?: { body: string };
+  image?: WhatsAppMediaObject;
+  audio?: WhatsAppMediaObject;
+  video?: WhatsAppMediaObject;
+  document?: WhatsAppDocumentObject;
 }
 
 export interface WhatsAppContact {

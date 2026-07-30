@@ -9,14 +9,16 @@ import { UpdateProductUseCase } from "./application/use-cases/UpdateProductUseCa
 import { DeleteProductUseCase } from "./application/use-cases/DeleteProductUseCase.js";
 import { ProductController } from "./presentation/ProductController.js";
 import { buildProductRouter } from "./presentation/product.routes.js";
+import type { PlanLimitReader } from "../subscriptions/application/services/PlanLimitReader.js";
 
 export function createProductsModule(
   db: IDbClient,
   authenticate: RequestHandler,
+  planLimitReader: PlanLimitReader,
 ): { router: Router; repository: IProductRepository } {
   const repository = new PostgresProductRepository(db);
 
-  const createUseCase = new CreateProductUseCase(repository);
+  const createUseCase = new CreateProductUseCase(repository, planLimitReader);
   const getByIdUseCase = new GetProductByIdUseCase(repository);
   const listUseCase = new ListProductsUseCase(repository);
   const updateUseCase = new UpdateProductUseCase(repository);

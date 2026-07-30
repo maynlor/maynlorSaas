@@ -2,6 +2,7 @@ export interface PromptEngineOptions {
   canSearchProducts?: boolean;
   canSearchServices?: boolean;
   canSearchFaqs?: boolean;
+  canRememberClient?: boolean;
 }
 
 export class PromptEngine {
@@ -27,6 +28,12 @@ export class PromptEngine {
     if (options.canSearchFaqs) {
       parts.push(
         "Para consultas sobre horarios, envíos, medios de pago o políticas de la empresa, usá la herramienta buscar_faq y respondé según la respuesta oficial.",
+      );
+    }
+
+    if (options.canRememberClient) {
+      parts.push(
+        "Al empezar la conversación usá buscar_memoria para ver qué sabés de este cliente y personalizar tu respuesta. Cuando el cliente comparta un dato útil y no sensible (nombre, preferencias, última compra), guardalo con guardar_memoria.",
       );
     }
 

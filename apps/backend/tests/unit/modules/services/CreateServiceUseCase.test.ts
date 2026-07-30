@@ -3,7 +3,8 @@ import { CreateServiceUseCase } from "@modules/services/application/use-cases/Cr
 import { UpdateServiceUseCase } from "@modules/services/application/use-cases/UpdateServiceUseCase.js";
 import { Service } from "@modules/services/domain/Service.js";
 import type { IServiceRepository } from "@modules/services/application/repositories/IServiceRepository.js";
-import { DomainError, NotFoundError } from "@shared/errors/AppError.js";
+import type { PlanLimitReader } from "@modules/subscriptions/application/services/PlanLimitReader.js";
+import { DomainError, NotFoundError, PlanLimitExceededError } from "@shared/errors/AppError.js";
 
 const businessId = "b1";
 
@@ -13,14 +14,19 @@ function createRepositoryMock(overrides: Partial<IServiceRepository> = {}): ISer
     findById: vi.fn().mockResolvedValue(null),
     findAll: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     search: vi.fn().mockResolvedValue([]),
+    countByBusinessId: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
+}
+
+function createPlanLimitReaderMock(limit: number | null = null): PlanLimitReader {
+  return { getLimit: vi.fn().mockResolvedValue(limit) } as unknown as PlanLimitReader;
 }
 
 describe("CreateServiceUseCase", () => {
   it("creates a service with valid data", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateServiceUseCase(repo);
+    const useCase = new CreateServiceUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, {
       name: "Corte de pelo",
@@ -38,7 +44,7 @@ describe("CreateServiceUseCase", () => {
 
   it("fails with a domain error for a negative price", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateServiceUseCase(repo);
+    const useCase = new CreateServiceUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, { name: "Corte", price: -10 });
 
@@ -49,7 +55,7 @@ describe("CreateServiceUseCase", () => {
 
   it("fails with a domain error for a non-positive duration", async () => {
     const repo = createRepositoryMock();
-    const useCase = new CreateServiceUseCase(repo);
+    const useCase = new CreateServiceUseCase(repo, createPlanLimitReaderMock());
 
     const result = await useCase.execute(businessId, {
       name: "Corte",
@@ -59,6 +65,17 @@ describe("CreateServiceUseCase", () => {
 
     expect(result.isFailure).toBe(true);
     expect(result.error).toBeInstanceOf(DomainError);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it("fails with a plan limit error when the plan's service quota is reached", async () => {
+    const repo = createRepositoryMock({ countByBusinessId: vi.fn().mockResolvedValue(1) });
+    const useCase = new CreateServiceUseCase(repo, createPlanLimitReaderMock(1));
+
+    const result = await useCase.execute(businessId, { name: "Corte", price: 100 });
+
+    expect(result.isFailure).toBe(true);
+    expect(result.error).toBeInstanceOf(PlanLimitExceededError);
     expect(repo.save).not.toHaveBeenCalled();
   });
 });

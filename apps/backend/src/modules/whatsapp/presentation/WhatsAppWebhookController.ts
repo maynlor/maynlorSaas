@@ -1,7 +1,44 @@
 import type { Request, Response } from "express";
 import type { ILogger } from "../../../shared/logger/Logger.js";
-import type { ReceiveWhatsAppMessageUseCase } from "../application/use-cases/ReceiveWhatsAppMessageUseCase.js";
-import type { WhatsAppWebhookPayload } from "../application/dtos/WhatsAppWebhookPayload.js";
+import type {
+  ReceiveWhatsAppMessageUseCase,
+  ReceiveWhatsAppMessageInput,
+  WhatsAppMediaType,
+} from "../application/use-cases/ReceiveWhatsAppMessageUseCase.js";
+import type {
+  WhatsAppIncomingMessage,
+  WhatsAppWebhookPayload,
+} from "../application/dtos/WhatsAppWebhookPayload.js";
+
+const SUPPORTED_MEDIA_TYPES: WhatsAppMediaType[] = ["image", "audio", "video", "document"];
+
+function toReceiveInput(
+  message: WhatsAppIncomingMessage,
+  contactName: string | undefined,
+): Omit<ReceiveWhatsAppMessageInput, "phoneNumberId"> | null {
+  if (message.type === "text" && message.text) {
+    return { fromPhone: message.from, contactName, messageText: message.text.body };
+  }
+
+  if (SUPPORTED_MEDIA_TYPES.includes(message.type as WhatsAppMediaType)) {
+    const mediaType = message.type as WhatsAppMediaType;
+    const mediaObject = message[mediaType];
+    if (!mediaObject) return null;
+
+    return {
+      fromPhone: message.from,
+      contactName,
+      media: {
+        type: mediaType,
+        mediaId: mediaObject.id,
+        caption: mediaObject.caption,
+        filename: "filename" in mediaObject ? mediaObject.filename : undefined,
+      },
+    };
+  }
+
+  return null;
+}
 
 export class WhatsAppWebhookController {
   constructor(
@@ -34,17 +71,13 @@ export class WhatsAppWebhookController {
           const messages = value?.messages ?? [];
 
           for (const message of messages) {
-            if (message.type !== "text" || !message.text) continue;
-
             const contactName = value.contacts?.find((c) => c.wa_id === message.from)?.profile
               .name;
 
-            await this.receiveUseCase.execute({
-              phoneNumberId,
-              fromPhone: message.from,
-              messageText: message.text.body,
-              contactName,
-            });
+            const partialInput = toReceiveInput(message, contactName);
+            if (!partialInput) continue;
+
+            await this.receiveUseCase.execute({ phoneNumberId, ...partialInput });
           }
         }
       }
