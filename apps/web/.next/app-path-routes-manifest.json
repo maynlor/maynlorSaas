@@ -5,9 +5,10 @@
   "/register/page": "/register",
   "/dashboard/conversations/[id]/page": "/dashboard/conversations/[id]",
   "/dashboard/conversations/page": "/dashboard/conversations",
-  "/dashboard/services/page": "/dashboard/services",
+  "/dashboard/page": "/dashboard",
   "/dashboard/faqs/page": "/dashboard/faqs",
-  "/dashboard/settings/page": "/dashboard/settings",
+  "/dashboard/services/page": "/dashboard/services",
+  "/dashboard/plan/page": "/dashboard/plan",
   "/dashboard/products/page": "/dashboard/products",
-  "/dashboard/page": "/dashboard"
+  "/dashboard/settings/page": "/dashboard/settings"
 }

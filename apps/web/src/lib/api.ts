@@ -44,9 +44,12 @@ export async function api<T>(
   const data: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const errorBody =
+      data && typeof data === "object" && "error" in data ? (data as { error: unknown }).error : null;
     const message =
-      data && typeof data === "object" && "message" in data && typeof data.message === "string"
-        ? data.message
+      errorBody && typeof errorBody === "object" && "message" in errorBody &&
+      typeof (errorBody as { message: unknown }).message === "string"
+        ? (errorBody as { message: string }).message
         : `Request failed with status ${response.status}`;
     throw new ApiError(response.status, message);
   }

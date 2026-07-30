@@ -5,9 +5,10 @@
   "/register/page": "app/register/page.js",
   "/dashboard/conversations/[id]/page": "app/dashboard/conversations/[id]/page.js",
   "/dashboard/conversations/page": "app/dashboard/conversations/page.js",
-  "/dashboard/services/page": "app/dashboard/services/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/dashboard/faqs/page": "app/dashboard/faqs/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/services/page": "app/dashboard/services/page.js",
+  "/dashboard/plan/page": "app/dashboard/plan/page.js",
   "/dashboard/products/page": "app/dashboard/products/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/dashboard/settings/page": "app/dashboard/settings/page.js"
 }

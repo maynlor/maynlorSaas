@@ -19,6 +19,8 @@ import { createSearchFaqsTool } from "./modules/knowledge/application/tools/Sear
 import { createConversationsModule } from "./modules/conversations/conversations.module.js";
 import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whatsapp/whatsapp.module.js";
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
+import { createSubscriptionsModule } from "./modules/subscriptions/subscriptions.module.js";
+import type { PaymentProvider } from "./modules/subscriptions/application/providers/PaymentProvider.js";
 
 export function createApp(
   db: IDbClient,
@@ -34,6 +36,7 @@ export function createApp(
   },
   whatsAppClientOverride?: WhatsAppClient,
   corsOrigin: string = "http://localhost:3001",
+  paymentProviderOverride?: PaymentProvider,
 ): Express {
   const app = express();
 
@@ -66,6 +69,7 @@ export function createApp(
     conversations.sendMessageUseCase,
     whatsAppClientOverride,
   );
+  const subscriptions = createSubscriptionsModule(db, auth.authenticate, paymentProviderOverride);
 
   app.use(
     buildRootRouter([
@@ -77,6 +81,8 @@ export function createApp(
       { path: "/faqs", router: knowledge.router },
       { path: "/conversations", router: conversations.router },
       { path: "/webhooks/whatsapp", router: whatsapp.router },
+      { path: "/plans", router: subscriptions.planRouter },
+      { path: "/subscriptions", router: subscriptions.subscriptionRouter },
     ]),
   );
 

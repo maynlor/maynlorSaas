@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type Paginated } from "@/lib/api";
+import Link from "next/link";
+import { api, ApiError, type Paginated } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,11 @@ interface Stats {
   faqs: number | null;
 }
 
+interface CurrentSubscription {
+  status: string;
+  plan: { name: string };
+}
+
 export default function DashboardPage() {
   const { business } = useAuth();
   const [stats, setStats] = useState<Stats>({
@@ -21,6 +27,8 @@ export default function DashboardPage() {
     services: null,
     faqs: null,
   });
+  const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
 
   useEffect(() => {
     const count = async (endpoint: string): Promise<number | null> => {
@@ -39,6 +47,15 @@ export default function DashboardPage() {
     ]).then(([conversations, products, services, faqs]) =>
       setStats({ conversations, products, services, faqs }),
     );
+
+    api<CurrentSubscription>("/subscriptions/me")
+      .then(setSubscription)
+      .catch((err) => {
+        if (!(err instanceof ApiError && err.status === 404)) {
+          setSubscription(null);
+        }
+      })
+      .finally(() => setSubscriptionLoaded(true));
   }, []);
 
   const cards = [
@@ -67,6 +84,30 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan</CardTitle>
+          <CardDescription>Suscripción actual de tu empresa</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!subscriptionLoaded ? (
+            <p className="text-sm text-muted-foreground">Cargando…</p>
+          ) : subscription ? (
+            <p className="text-sm">
+              <Badge>{subscription.plan.name}</Badge>{" "}
+              <span className="text-muted-foreground">Estado: {subscription.status}</span>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              <Badge variant="muted">Sin plan</Badge> Todavía no elegiste un plan.{" "}
+              <Link href="/dashboard/plan" className="font-medium text-foreground underline">
+                Ver planes disponibles
+              </Link>
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
