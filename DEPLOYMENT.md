@@ -65,6 +65,7 @@ que dos despliegues simultáneos no se pisan.
 | `MERCADOPAGO_ACCESS_TOKEN` | api | **Credenciales de producción** (paso 4) |
 | `MERCADOPAGO_WEBHOOK_SECRET` | api | Clave de firma del webhook (paso 4) |
 | `MERCADOPAGO_BACK_URL` | api | `https://app.tudominio.com/dashboard/plan` |
+| `SENTRY_DSN` | api | DSN del proyecto de Sentry (opcional; sin él no se reporta nada) |
 | `NEXT_PUBLIC_API_URL` | web | `https://api.tudominio.com` |
 
 `AUTH_COOKIE_SAMESITE` viene en `lax`; cambiarlo a `none` solo si frontend y API

@@ -32,6 +32,10 @@ const envSchema = z.object({
   // Sin esto, el rate limiting queda en memoria por instancia: con varias
   // instancias detrás del balanceador cada una lleva su propia cuenta.
   REDIS_URL: z.string().optional(),
+  // Sin DSN no se reporta nada y la app arranca igual (ver NoopErrorReporter).
+  SENTRY_DSN: z.string().optional(),
+  // Render expone el commit desplegado; permite saber qué versión falló.
+  RENDER_GIT_COMMIT: z.string().optional(),
   POSTHOG_API_KEY: z.string().optional(),
   POSTHOG_HOST: z.string().default("https://us.i.posthog.com"),
 });
@@ -67,6 +71,8 @@ export const config = {
   rateLimitAuthMax: parsed.data.RATE_LIMIT_AUTH_MAX,
   rateLimitWebhookMax: parsed.data.RATE_LIMIT_WEBHOOK_MAX,
   redisUrl: parsed.data.REDIS_URL,
+  sentryDsn: parsed.data.SENTRY_DSN,
+  releaseCommit: parsed.data.RENDER_GIT_COMMIT,
   postHogApiKey: parsed.data.POSTHOG_API_KEY,
   postHogHost: parsed.data.POSTHOG_HOST,
 };

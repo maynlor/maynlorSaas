@@ -1,10 +1,28 @@
 import { config } from "./shared/config/Config.js";
 import { PinoLogger } from "./shared/logger/PinoLogger.js";
+import { ReportingLogger } from "./shared/logger/ReportingLogger.js";
+import type { ErrorReporter } from "./shared/errors/ErrorReporter.js";
+import { NoopErrorReporter } from "./shared/errors/NoopErrorReporter.js";
+import { initSentry, SentryErrorReporter } from "./shared/errors/SentryErrorReporter.js";
 import { PgDbClient } from "./shared/database/PgDbClient.js";
 import { createApp } from "./app.js";
 
+function createErrorReporter(): ErrorReporter {
+  if (!config.sentryDsn) {
+    return new NoopErrorReporter();
+  }
+  initSentry({
+    dsn: config.sentryDsn,
+    environment: config.nodeEnv,
+    release: config.releaseCommit,
+  });
+  return new SentryErrorReporter();
+}
+
 async function main(): Promise<void> {
-  const logger = new PinoLogger(config.logLevel);
+  // Envolver el logger acá alcanza para que todo el sistema reporte: cada
+  // módulo ya recibe este mismo logger por inyección.
+  const logger = new ReportingLogger(new PinoLogger(config.logLevel), createErrorReporter());
   const db = new PgDbClient(config.databaseUrl);
 
   const app = createApp(

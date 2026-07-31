@@ -96,6 +96,10 @@ services:
         value: 600
       # Sin REDIS_URL el rate limiting cae a memoria por instancia. Ver nota
       # temporal arriba: se reactiva cuando se vuelva a plan starter.
+      # Reporte de errores. Sin DSN la aplicación arranca igual y no reporta
+      # nada; con DSN, todo lo que pasa por logger.error llega a Sentry.
+      - key: SENTRY_DSN
+        sync: false
 
   - type: web
     name: saasbot-web
