@@ -5,11 +5,21 @@
 #
 # Todo lo marcado con `sync: false` es un secreto o un valor propio del entorno:
 # Render lo pide al crear el blueprint y nunca queda en el repositorio.
+#
+# NOTA TEMPORAL: los servicios web están en plan `free` (sin tarjeta cargada
+# todavía) para verificar el primer deploy. El free se duerme tras 15 min sin
+# tráfico y tarda en despertar — antes de conectar Mercado Pago o WhatsApp de
+# verdad hay que volver esto a `starter`, porque un webhook que llega mientras
+# el servicio duerme se pierde. El servicio de Redis se sacó del blueprint
+# para este trial (Key Value no tiene plan free en Render); sin REDIS_URL el
+# rate limiting cae a memoria por instancia, que alcanza en free porque no
+# escala a más de una instancia. Volver a agregarlo junto con el upgrade a
+# starter.
 services:
   - type: web
     name: saasbot-api
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     rootDir: .
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter backend build
@@ -70,19 +80,13 @@ services:
         value: 20
       - key: RATE_LIMIT_WEBHOOK_MAX
         value: 600
-      # Sin esto el rate limiting queda en memoria por instancia: con más de
-      # una réplica cada una lleva su propia cuenta y el límite real termina
-      # siendo N × RATE_LIMIT_*_MAX. Opcional pero recomendado.
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: saasbot-redis
-          property: connectionString
+      # Sin REDIS_URL el rate limiting cae a memoria por instancia. Ver nota
+      # temporal arriba: se reactiva cuando se vuelva a plan starter.
 
   - type: web
     name: saasbot-web
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     rootDir: .
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
@@ -97,11 +101,3 @@ services:
       # que cambiar este valor exige volver a desplegar, no basta reiniciar.
       - key: NEXT_PUBLIC_API_URL
         sync: false
-
-  # Store compartido para el rate limiting: sin esto cada instancia de
-  # saasbot-api lleva su propia cuenta en memoria.
-  - type: keyvalue
-    name: saasbot-redis
-    plan: starter
-    region: oregon
-    ipAllowList: []
