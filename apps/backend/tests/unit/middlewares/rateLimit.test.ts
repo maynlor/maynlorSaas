@@ -1,10 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import express from "express";
 import request from "supertest";
+import type { Redis } from "ioredis";
 import {
   createApiRateLimiter,
   createAuthRateLimiter,
   createWebhookRateLimiter,
+  createRateLimitStore,
 } from "../../../src/presentation/middlewares/rateLimit.js";
 
 function appWith(middleware: express.RequestHandler): express.Express {
@@ -64,5 +66,48 @@ describe("rate limiting", () => {
 
     expect(await hit(app)).toBe(200);
     expect(await hit(app)).toBe(429);
+  });
+
+  it("does not apply the general limit to health checks", async () => {
+    // Si el health check consumiera cupo, la plataforma de hosting podría
+    // recibir un 429 y dar la instancia por caída.
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(createApiRateLimiter({ windowMs: 60_000, max: 1 }));
+    app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
+    await request(app).get("/health");
+    const res = await request(app).get("/health");
+
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("createRateLimitStore", () => {
+  it("returns undefined without a Redis client, falling back to per-process memory", () => {
+    expect(createRateLimitStore(undefined, "api")).toBeUndefined();
+  });
+
+  it("wraps a Redis client's raw command interface into an express-rate-limit Store", () => {
+    const fakeClient = { call: vi.fn().mockResolvedValue(1) } as unknown as Redis;
+
+    const store = createRateLimitStore(fakeClient, "api");
+
+    expect(store).toBeDefined();
+    expect(typeof store?.increment).toBe("function");
+  });
+
+  it("builds three independently-usable limiters over the same Redis client", () => {
+    // express-rate-limit prohíbe compartir una misma instancia de Store entre
+    // limitadores; esto reprodujo un crash real al arrancar con Redis
+    // configurado (los tests con store en memoria no lo detectaban).
+    const fakeClient = { call: vi.fn().mockResolvedValue(1) } as unknown as Redis;
+    const config = { windowMs: 60_000, max: 10 };
+
+    expect(() => {
+      createApiRateLimiter(config, createRateLimitStore(fakeClient, "api"));
+      createAuthRateLimiter(config, createRateLimitStore(fakeClient, "auth"));
+      createWebhookRateLimiter(config, createRateLimitStore(fakeClient, "webhook"));
+    }).not.toThrow();
   });
 });

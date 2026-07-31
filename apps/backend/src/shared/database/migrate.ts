@@ -2,7 +2,6 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
-import { config } from "../config/Config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../../migrations");
@@ -72,6 +71,10 @@ async function applyPendingMigrations(pool: Pool): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Import diferido a propósito: `runMigrations` es lo que usan los tests
+  // (con su propia TEST_DATABASE_URL) y no debería exigir la configuración
+  // completa de la app solo por estar en el mismo módulo que este CLI.
+  const { config } = await import("../config/Config.js");
   const pool = new Pool({ connectionString: config.databaseUrl });
   try {
     await runMigrations(pool);

@@ -29,8 +29,30 @@ interface Subscription {
   id: string;
   status: string;
   currentPeriodEnd: string;
+  graceEndsAt: string | null;
   plan: Plan;
   checkoutUrl?: string | null;
+}
+
+interface SubscriptionPayment {
+  id: string;
+  status: "approved" | "rejected" | "pending" | "refunded";
+  amount: number;
+  currency: string;
+  processedAt: string;
+}
+
+const PAYMENT_STATUS_LABEL: Record<SubscriptionPayment["status"], string> = {
+  approved: "Aprobado",
+  rejected: "Rechazado",
+  pending: "Pendiente",
+  refunded: "Reembolsado",
+};
+
+function paymentStatusVariant(status: SubscriptionPayment["status"]): "default" | "muted" | "destructive" {
+  if (status === "approved") return "default";
+  if (status === "rejected") return "destructive";
+  return "muted";
 }
 
 function formatPrice(plan: Plan): string {
@@ -46,6 +68,7 @@ function formatLimit(value: number | null): string {
 export default function PlanPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
@@ -54,15 +77,17 @@ export default function PlanPage() {
     setLoading(true);
     setError(null);
     try {
-      const [plansData, sub] = await Promise.all([
+      const [plansData, sub, paymentsData] = await Promise.all([
         api<{ items: Plan[] }>("/plans"),
         api<Subscription>("/subscriptions/me").catch((err) => {
           if (err instanceof ApiError && err.status === 404) return null;
           throw err;
         }),
+        api<{ items: SubscriptionPayment[] }>("/subscriptions/me/payments"),
       ]);
       setPlans(plansData.items);
       setSubscription(sub);
+      setPayments(paymentsData.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar los planes");
     } finally {
@@ -123,6 +148,14 @@ export default function PlanPage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      {subscription?.status === "past_due" && subscription.graceEndsAt && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          No pudimos procesar el último cobro de tu plan {subscription.plan.name}. Tenés acceso hasta el{" "}
+          <strong>{new Date(subscription.graceEndsAt).toLocaleDateString("es-AR")}</strong> para regularizarlo;
+          después vas a pasar automáticamente al plan gratis.
+        </div>
+      )}
+
       {subscription && (
         <Card>
           <CardHeader>
@@ -134,7 +167,9 @@ export default function PlanPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
-              <Badge>{subscription.status}</Badge>
+              <Badge variant={subscription.status === "past_due" ? "destructive" : "default"}>
+                {subscription.status}
+              </Badge>
               <Button
                 variant="destructive"
                 className="h-8 px-3"
@@ -185,6 +220,47 @@ export default function PlanPage() {
           );
         })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historial de cobros</CardTitle>
+          <CardDescription>Los cargos que Mercado Pago procesó sobre tu suscripción.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todavía no hay cobros registrados.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">Fecha</th>
+                    <th className="py-2 pr-4 font-medium">Monto</th>
+                    <th className="py-2 font-medium">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id} className="border-b last:border-0">
+                      <td className="py-2 pr-4">
+                        {new Date(payment.processedAt).toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="py-2 pr-4">
+                        {payment.amount.toLocaleString("es-AR")} {payment.currency}
+                      </td>
+                      <td className="py-2">
+                        <Badge variant={paymentStatusVariant(payment.status)}>
+                          {PAYMENT_STATUS_LABEL[payment.status]}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

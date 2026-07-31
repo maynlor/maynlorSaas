@@ -23,6 +23,9 @@ const envSchema = z.object({
   RATE_LIMIT_API_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().positive().default(600),
+  // Sin esto, el rate limiting queda en memoria por instancia: con varias
+  // instancias detrás del balanceador cada una lleva su propia cuenta.
+  REDIS_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -52,4 +55,5 @@ export const config = {
   rateLimitApiMax: parsed.data.RATE_LIMIT_API_MAX,
   rateLimitAuthMax: parsed.data.RATE_LIMIT_AUTH_MAX,
   rateLimitWebhookMax: parsed.data.RATE_LIMIT_WEBHOOK_MAX,
+  redisUrl: parsed.data.REDIS_URL,
 };

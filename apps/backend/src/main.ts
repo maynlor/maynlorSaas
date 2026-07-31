@@ -37,6 +37,8 @@ async function main(): Promise<void> {
       auth: { windowMs: 15 * 60_000, max: config.rateLimitAuthMax },
       webhook: { windowMs: 60_000, max: config.rateLimitWebhookMax },
     },
+    undefined,
+    config.redisUrl,
   );
 
   app.listen(config.port, () => {

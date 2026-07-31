@@ -3,12 +3,15 @@ import cors from "cors";
 import type { IDbClient } from "./shared/database/DbClient.js";
 import type { ILogger } from "./shared/logger/Logger.js";
 import { createRequestLogger } from "./presentation/middlewares/requestLogger.js";
+import type { Redis } from "ioredis";
 import {
   createApiRateLimiter,
   createAuthRateLimiter,
   createWebhookRateLimiter,
+  createRateLimitStore,
   type RateLimitConfig,
 } from "./presentation/middlewares/rateLimit.js";
+import { createRedisClient } from "./shared/redis/createRedisClient.js";
 import { createErrorHandler } from "./presentation/middlewares/errorHandler.js";
 import { buildRootRouter } from "./presentation/router.js";
 import { buildHealthRouter } from "./presentation/health.routes.js";
@@ -95,6 +98,8 @@ export function createApp(
     backUrl: undefined,
   },
   rateLimitConfig: RateLimitModuleConfig = DEFAULT_RATE_LIMITS,
+  redisClientOverride?: Redis,
+  redisUrl?: string,
 ): Express {
   const app = express();
 
@@ -111,9 +116,11 @@ export function createApp(
     }),
   );
   app.use(createRequestLogger(logger));
-  app.use(createApiRateLimiter(rateLimitConfig.api));
-  app.use("/auth", createAuthRateLimiter(rateLimitConfig.auth));
-  app.use("/webhooks", createWebhookRateLimiter(rateLimitConfig.webhook));
+
+  const redisClient = redisClientOverride ?? createRedisClient(redisUrl, logger);
+  app.use(createApiRateLimiter(rateLimitConfig.api, createRateLimitStore(redisClient, "api")));
+  app.use("/auth", createAuthRateLimiter(rateLimitConfig.auth, createRateLimitStore(redisClient, "auth")));
+  app.use("/webhooks", createWebhookRateLimiter(rateLimitConfig.webhook, createRateLimitStore(redisClient, "webhook")));
 
   const paymentProvider = paymentProviderOverride ?? createPaymentProvider(mercadoPagoConfig, corsOrigin);
   const auth = createAuthModule(db, logger, authConfig, paymentProvider);

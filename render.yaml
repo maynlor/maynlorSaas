@@ -70,6 +70,14 @@ services:
         value: 20
       - key: RATE_LIMIT_WEBHOOK_MAX
         value: 600
+      # Sin esto el rate limiting queda en memoria por instancia: con más de
+      # una réplica cada una lleva su propia cuenta y el límite real termina
+      # siendo N × RATE_LIMIT_*_MAX. Opcional pero recomendado.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: saasbot-redis
+          property: connectionString
 
   - type: web
     name: saasbot-web
@@ -89,3 +97,11 @@ services:
       # que cambiar este valor exige volver a desplegar, no basta reiniciar.
       - key: NEXT_PUBLIC_API_URL
         sync: false
+
+  # Store compartido para el rate limiting: sin esto cada instancia de
+  # saasbot-api lleva su propia cuenta en memoria.
+  - type: keyvalue
+    name: saasbot-redis
+    plan: starter
+    region: oregon
+    ipAllowList: []

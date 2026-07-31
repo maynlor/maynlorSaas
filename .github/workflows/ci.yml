@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela una corrida vieja si llega un push nuevo a la misma rama: evita
+# gastar minutos en un commit que ya quedó obsoleto.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    # Réplica de docker-compose.yml: mismas credenciales y el mismo puerto
+    # 5433 que usa TEST_DATABASE_URL por defecto en los tests, para no tener
+    # que declarar la variable acá y arriesgarse a que diverja de lo local.
+    services:
+      postgres-test:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: saasbot
+          POSTGRES_PASSWORD: saasbot
+          POSTGRES_DB: saasbot_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U saasbot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter backend typecheck
+
+      - run: pnpm --filter backend lint
+
+      - run: pnpm --filter backend test:unit
+
+      - run: pnpm --filter backend test:integration
+
+      - run: pnpm --filter backend build
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter web typecheck
+
+      - run: pnpm --filter web lint
+
+      - run: pnpm --filter web build
