@@ -4,7 +4,7 @@ import type { ILogger } from "../../shared/logger/Logger.js";
 import { BcryptPasswordHasher } from "../../shared/security/BcryptPasswordHasher.js";
 import { JwtTokenService } from "../../shared/security/JwtTokenService.js";
 import { createAuthenticateMiddleware } from "../../presentation/middlewares/authenticate.js";
-import { buildAuthCookieOptions } from "../../shared/security/authCookie.js";
+import { buildAuthCookieOptions, type AuthCookieSameSite } from "../../shared/security/authCookie.js";
 import { PostgresBusinessRepository } from "../businesses/infrastructure/persistence/PostgresBusinessRepository.js";
 import { PostgresUserRepository } from "../users/infrastructure/persistence/PostgresUserRepository.js";
 import { PostgresPlanRepository } from "../subscriptions/infrastructure/persistence/PostgresPlanRepository.js";
@@ -20,6 +20,8 @@ export interface AuthModuleConfig {
   jwtSecret: string;
   jwtExpiresIn: string;
   nodeEnv?: string;
+  /** Ver `buildAuthCookieOptions`: depende de si frontend y backend comparten sitio. */
+  cookieSameSite?: AuthCookieSameSite;
 }
 
 export function createAuthModule(
@@ -51,7 +53,10 @@ export function createAuthModule(
     registerUseCase,
     loginUseCase,
     getCurrentUserUseCase,
-    buildAuthCookieOptions(authConfig.nodeEnv ?? "development"),
+    buildAuthCookieOptions({
+      nodeEnv: authConfig.nodeEnv ?? "development",
+      sameSite: authConfig.cookieSameSite ?? "lax",
+    }),
   );
   const authenticate = createAuthenticateMiddleware(tokenService);
 

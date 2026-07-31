@@ -1,6 +1,6 @@
 import { Result } from "../../../../shared/result/Result.js";
 import type { AppError } from "../../../../shared/errors/AppError.js";
-import { ConflictError } from "../../../../shared/errors/AppError.js";
+import { ConflictError, PaymentProviderError } from "../../../../shared/errors/AppError.js";
 import type { IDbClient } from "../../../../shared/database/DbClient.js";
 import type { ILogger } from "../../../../shared/logger/Logger.js";
 import type { IPasswordHasher } from "../../../../shared/security/PasswordHasher.js";
@@ -80,7 +80,7 @@ export class RegisterUseCase {
         const user = userResult.value;
         await userRepo.save(user);
 
-        await this.subscribeToDefaultPlan(trx, business.id);
+        await this.subscribeToDefaultPlan(trx, business.id, business.email.toString());
 
         return { user };
       });
@@ -109,7 +109,7 @@ export class RegisterUseCase {
     }
   }
 
-  private async subscribeToDefaultPlan(trx: IDbClient, businessId: string): Promise<void> {
+  private async subscribeToDefaultPlan(trx: IDbClient, businessId: string, payerEmail: string): Promise<void> {
     const planRepository = this.createPlanRepository(trx);
     const plan = await planRepository.findBySlug(DEFAULT_PLAN_SLUG);
     if (!plan) {
@@ -119,13 +119,22 @@ export class RegisterUseCase {
       return;
     }
 
-    const activation = await this.paymentProvider.activateSubscription({ businessId, plan });
+    let checkout;
+    try {
+      checkout = await this.paymentProvider.createCheckout({ businessId, plan, payerEmail });
+    } catch (err) {
+      throw new PaymentProviderError(
+        err instanceof Error ? err.message : "The payment provider rejected the checkout request",
+      );
+    }
     const subscription = Subscription.create({
       businessId,
       planId: plan.id,
-      status: activation.status,
-      currentPeriodStart: activation.currentPeriodStart,
-      currentPeriodEnd: activation.currentPeriodEnd,
+      status: checkout.status,
+      provider: checkout.provider,
+      externalId: checkout.externalId,
+      currentPeriodStart: checkout.currentPeriodStart,
+      currentPeriodEnd: checkout.currentPeriodEnd,
     });
 
     const subscriptionRepository = this.createSubscriptionRepository(trx);

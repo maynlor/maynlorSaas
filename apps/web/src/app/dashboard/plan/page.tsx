@@ -30,6 +30,7 @@ interface Subscription {
   status: string;
   currentPeriodEnd: string;
   plan: Plan;
+  checkoutUrl?: string | null;
 }
 
 function formatPrice(plan: Plan): string {
@@ -77,7 +78,14 @@ export default function PlanPage() {
     setActionSlug(slug);
     setError(null);
     try {
-      await api("/subscriptions", { method: "POST", body: { planSlug: slug } });
+      const subscription = await api<Subscription>("/subscriptions", {
+        method: "POST",
+        body: { planSlug: slug },
+      });
+      if (subscription.checkoutUrl) {
+        window.location.href = subscription.checkoutUrl;
+        return;
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar de plan");

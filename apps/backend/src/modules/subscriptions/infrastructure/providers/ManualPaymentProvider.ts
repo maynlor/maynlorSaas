@@ -1,7 +1,8 @@
 import type {
-  ActivateSubscriptionInput,
-  ActivateSubscriptionResult,
+  CreateCheckoutInput,
+  CreateCheckoutResult,
   PaymentProvider,
+  ProviderWebhookEvent,
 } from "../../application/providers/PaymentProvider.js";
 
 const BILLING_PERIOD_DAYS = 30;
@@ -12,15 +13,26 @@ const BILLING_PERIOD_DAYS = 30;
  * sin cobrar. Reemplazable sin tocar el resto del dominio.
  */
 export class ManualPaymentProvider implements PaymentProvider {
-  async activateSubscription(_input: ActivateSubscriptionInput): Promise<ActivateSubscriptionResult> {
+  createCheckout(_input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
     const currentPeriodStart = new Date();
     const currentPeriodEnd = new Date(currentPeriodStart);
     currentPeriodEnd.setDate(currentPeriodEnd.getDate() + BILLING_PERIOD_DAYS);
 
     return Promise.resolve({
       status: "active",
+      provider: "manual",
+      externalId: null,
+      checkoutUrl: null,
       currentPeriodStart,
       currentPeriodEnd,
     });
+  }
+
+  cancelSubscription(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  parseWebhookEvent(): Promise<ProviderWebhookEvent | null> {
+    return Promise.resolve(null);
   }
 }

@@ -10,7 +10,12 @@ async function main(): Promise<void> {
   const app = createApp(
     db,
     logger,
-    { jwtSecret: config.jwtSecret, jwtExpiresIn: config.jwtExpiresIn, nodeEnv: config.nodeEnv },
+    {
+      jwtSecret: config.jwtSecret,
+      jwtExpiresIn: config.jwtExpiresIn,
+      nodeEnv: config.nodeEnv,
+      cookieSameSite: config.authCookieSameSite,
+    },
     { openaiApiKey: config.openaiApiKey, openaiModel: config.openaiModel },
     undefined,
     {
@@ -21,6 +26,17 @@ async function main(): Promise<void> {
     },
     undefined,
     config.webOrigin,
+    undefined,
+    {
+      accessToken: config.mercadoPagoAccessToken,
+      webhookSecret: config.mercadoPagoWebhookSecret,
+      backUrl: config.mercadoPagoBackUrl,
+    },
+    {
+      api: { windowMs: 60_000, max: config.rateLimitApiMax },
+      auth: { windowMs: 15 * 60_000, max: config.rateLimitAuthMax },
+      webhook: { windowMs: 60_000, max: config.rateLimitWebhookMax },
+    },
   );
 
   app.listen(config.port, () => {

@@ -1,0 +1,91 @@
+# Blueprint de Render para la plataforma.
+#
+# La base de datos NO se declara acá: vive en Supabase, y su cadena de conexión
+# se carga como secreto (`DATABASE_URL`) desde el panel de Render.
+#
+# Todo lo marcado con `sync: false` es un secreto o un valor propio del entorno:
+# Render lo pide al crear el blueprint y nunca queda en el repositorio.
+services:
+  - type: web
+    name: saasbot-api
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter backend build
+    # Se ejecuta una sola vez por despliegue, antes de levantar las instancias:
+    # así el esquema está listo cuando entra tráfico y no se migra por instancia.
+    preDeployCommand: pnpm --filter backend migrate:prod
+    startCommand: pnpm --filter backend start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: LOG_LEVEL
+        value: info
+      # Postgres de Supabase. Usar la cadena del "connection pooler" (puerto
+      # 6543): Render escala a varias instancias y el puerto directo agota
+      # rápido el límite de conexiones de Supabase.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # "lax" sirve cuando el frontend comparte dominio con la API
+      # (app.tudominio.com + api.tudominio.com). Si quedan en dominios
+      # distintos hay que poner "none", o el navegador no enviará la cookie.
+      - key: AUTH_COOKIE_SAMESITE
+        value: lax
+      # Origen exacto del frontend, para CORS con credenciales.
+      - key: WEB_ORIGIN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_API_VERSION
+        value: v21.0
+      # Credenciales de PRODUCCIÓN de Mercado Pago. Si se define el token, el
+      # secreto del webhook es obligatorio: sin él la aplicación no arranca,
+      # porque no podría distinguir una notificación real de una falsificada.
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADOPAGO_WEBHOOK_SECRET
+        sync: false
+      # A dónde vuelve el negocio tras autorizar el pago. Debe ser HTTPS.
+      - key: MERCADOPAGO_BACK_URL
+        sync: false
+      - key: RATE_LIMIT_API_MAX
+        value: 300
+      - key: RATE_LIMIT_AUTH_MAX
+        value: 20
+      - key: RATE_LIMIT_WEBHOOK_MAX
+        value: 600
+
+  - type: web
+    name: saasbot-web
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    startCommand: pnpm --filter web start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # `next start` toma el puerto de PORT; por eso el script no lo fija.
+      - key: PORT
+        value: 10000
+      # Next.js incrusta las NEXT_PUBLIC_* en el bundle durante el build, así
+      # que cambiar este valor exige volver a desplegar, no basta reiniciar.
+      - key: NEXT_PUBLIC_API_URL
+        sync: false

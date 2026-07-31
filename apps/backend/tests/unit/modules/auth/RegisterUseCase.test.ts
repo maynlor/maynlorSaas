@@ -73,16 +73,22 @@ function createSubscriptionRepoMock(
   return {
     save: vi.fn().mockResolvedValue(undefined),
     findCurrentByBusinessId: vi.fn(),
+    findByExternalId: vi.fn(),
     ...overrides,
   };
 }
 
 const paymentProvider: PaymentProvider = {
-  activateSubscription: vi.fn().mockResolvedValue({
+  createCheckout: vi.fn().mockResolvedValue({
     status: "active",
+    provider: "manual",
+    externalId: null,
+    checkoutUrl: null,
     currentPeriodStart: new Date("2026-01-01"),
     currentPeriodEnd: new Date("2026-01-31"),
   }),
+  cancelSubscription: vi.fn().mockResolvedValue(undefined),
+  parseWebhookEvent: vi.fn().mockResolvedValue(null),
 };
 
 const passwordHasher: IPasswordHasher = {

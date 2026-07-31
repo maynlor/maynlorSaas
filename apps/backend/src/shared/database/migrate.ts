@@ -22,7 +22,28 @@ async function getAppliedMigrations(pool: Pool): Promise<Set<string>> {
   return new Set(result.rows.map((row) => row.filename));
 }
 
+/**
+ * Identificador arbitrario pero estable del lock: cualquier proceso que quiera
+ * migrar esta base usa el mismo número y por lo tanto espera su turno.
+ */
+const MIGRATION_LOCK_ID = 4815162342;
+
 export async function runMigrations(pool: Pool): Promise<void> {
+  // Con varias instancias desplegando a la vez, dos procesos podrían intentar
+  // aplicar la misma migración y uno fallaría a mitad de camino. El lock de
+  // Postgres serializa el proceso: el segundo espera y luego no encuentra
+  // nada pendiente.
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
+    await applyPendingMigrations(pool);
+  } finally {
+    await lockClient.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
+    lockClient.release();
+  }
+}
+
+async function applyPendingMigrations(pool: Pool): Promise<void> {
   await ensureMigrationsTable(pool);
   const applied = await getAppliedMigrations(pool);
 

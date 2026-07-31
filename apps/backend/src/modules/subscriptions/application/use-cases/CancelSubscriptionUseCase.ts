@@ -1,8 +1,9 @@
 import { Result } from "../../../../shared/result/Result.js";
 import type { AppError } from "../../../../shared/errors/AppError.js";
-import { NotFoundError, InfrastructureError } from "../../../../shared/errors/AppError.js";
+import { NotFoundError, InfrastructureError, PaymentProviderError } from "../../../../shared/errors/AppError.js";
 import type { ISubscriptionRepository } from "../repositories/ISubscriptionRepository.js";
 import type { IPlanRepository } from "../repositories/IPlanRepository.js";
+import type { PaymentProvider } from "../providers/PaymentProvider.js";
 import type { SubscriptionOutputDTO } from "../dtos/SubscriptionDTO.js";
 import { SubscriptionMapper } from "../mappers/SubscriptionMapper.js";
 
@@ -10,12 +11,23 @@ export class CancelSubscriptionUseCase {
   constructor(
     private readonly subscriptionRepository: ISubscriptionRepository,
     private readonly planRepository: IPlanRepository,
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   async execute(businessId: string): Promise<Result<SubscriptionOutputDTO, AppError>> {
     const subscription = await this.subscriptionRepository.findCurrentByBusinessId(businessId);
     if (!subscription) {
       return Result.fail(new NotFoundError("This business has no active subscription"));
+    }
+
+    try {
+      await this.paymentProvider.cancelSubscription(subscription.provider, subscription.externalId);
+    } catch (err) {
+      return Result.fail(
+        new PaymentProviderError(
+          err instanceof Error ? err.message : "The payment provider rejected the cancellation request",
+        ),
+      );
     }
 
     const cancelResult = subscription.cancel();

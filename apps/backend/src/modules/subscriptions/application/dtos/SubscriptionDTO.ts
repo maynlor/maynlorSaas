@@ -12,5 +12,9 @@ export interface SubscriptionOutputDTO {
   currentPeriodStart: string;
   currentPeriodEnd: string;
   canceledAt: string | null;
+  /** Si el cobro falló, hasta cuándo conserva el plan antes de caer al gratis. */
+  graceEndsAt: string | null;
   plan: PlanOutputDTO;
+  /** URL a la que redirigir para autorizar el cobro. Presente solo justo después de crear un checkout pago. */
+  checkoutUrl?: string | null;
 }

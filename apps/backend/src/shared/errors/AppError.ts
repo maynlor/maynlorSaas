@@ -45,3 +45,8 @@ export class PlanLimitExceededError extends AppError {
   readonly code = "PLAN_LIMIT_EXCEEDED";
   readonly statusCode = 402;
 }
+
+export class PaymentProviderError extends AppError {
+  readonly code = "PAYMENT_PROVIDER_ERROR";
+  readonly statusCode = 502;
+}

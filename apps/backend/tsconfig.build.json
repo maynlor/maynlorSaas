@@ -1,0 +1,14 @@
+// Configuración usada solo para compilar a producción.
+//
+// El tsconfig principal incluye `tests` para que el editor y `typecheck` los
+// cubran, pero eso hace que la salida quede en `dist/src/…` y que los tests
+// terminen empaquetados en el artefacto desplegado. Acá se compila únicamente
+// `src`, de modo que el punto de entrada sea `dist/main.js`.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "sourceMap": false
+  },
+  "include": ["src"]
+}

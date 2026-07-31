@@ -12,6 +12,7 @@ export class SubscriptionMapper {
       currentPeriodStart: subscription.currentPeriodStart.toISOString(),
       currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
       canceledAt: subscription.canceledAt ? subscription.canceledAt.toISOString() : null,
+      graceEndsAt: subscription.graceEndsAt ? subscription.graceEndsAt.toISOString() : null,
       plan: PlanMapper.toDTO(plan),
     };
   }

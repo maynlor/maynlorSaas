@@ -8,6 +8,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   JWT_EXPIRES_IN: z.string().default("2h"),
+  // "none" solo si el frontend vive en otro sitio registrable que el backend.
+  AUTH_COOKIE_SAMESITE: z.enum(["lax", "none", "strict"]).default("lax"),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
@@ -15,6 +17,12 @@ const envSchema = z.object({
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_API_VERSION: z.string().default("v21.0"),
   WEB_ORIGIN: z.string().default("http://localhost:3001"),
+  MERCADOPAGO_ACCESS_TOKEN: z.string().optional(),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().optional(),
+  MERCADOPAGO_BACK_URL: z.string().optional(),
+  RATE_LIMIT_API_MAX: z.coerce.number().int().positive().default(300),
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(20),
+  RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().positive().default(600),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -30,6 +38,7 @@ export const config = {
   databaseUrl: parsed.data.DATABASE_URL,
   jwtSecret: parsed.data.JWT_SECRET,
   jwtExpiresIn: parsed.data.JWT_EXPIRES_IN,
+  authCookieSameSite: parsed.data.AUTH_COOKIE_SAMESITE,
   openaiApiKey: parsed.data.OPENAI_API_KEY,
   openaiModel: parsed.data.OPENAI_MODEL,
   whatsappVerifyToken: parsed.data.WHATSAPP_VERIFY_TOKEN,
@@ -37,4 +46,10 @@ export const config = {
   whatsappAppSecret: parsed.data.WHATSAPP_APP_SECRET,
   whatsappApiVersion: parsed.data.WHATSAPP_API_VERSION,
   webOrigin: parsed.data.WEB_ORIGIN,
+  mercadoPagoAccessToken: parsed.data.MERCADOPAGO_ACCESS_TOKEN,
+  mercadoPagoWebhookSecret: parsed.data.MERCADOPAGO_WEBHOOK_SECRET,
+  mercadoPagoBackUrl: parsed.data.MERCADOPAGO_BACK_URL,
+  rateLimitApiMax: parsed.data.RATE_LIMIT_API_MAX,
+  rateLimitAuthMax: parsed.data.RATE_LIMIT_AUTH_MAX,
+  rateLimitWebhookMax: parsed.data.RATE_LIMIT_WEBHOOK_MAX,
 };

@@ -11,6 +11,7 @@ export function buildSubscriptionRouter(
 
   router.use(authenticate);
   router.get("/me", controller.getCurrent);
+  router.get("/me/payments", controller.listPayments);
   router.post("/", validate(createSubscriptionSchema), controller.subscribe);
   router.delete("/me", controller.cancel);
 

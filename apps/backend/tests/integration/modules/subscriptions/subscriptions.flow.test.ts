@@ -33,7 +33,7 @@ describe("Subscriptions flow", () => {
 
   beforeEach(async () => {
     await db.query(
-      "TRUNCATE messages, conversations, clients, products, services, faqs, subscriptions, businesses RESTART IDENTITY CASCADE",
+      "TRUNCATE messages, conversations, clients, products, services, faqs, subscription_payments, subscriptions, businesses RESTART IDENTITY CASCADE",
     );
   });
 
@@ -154,5 +154,62 @@ describe("Subscriptions flow", () => {
       .send({ planSlug: "does-not-exist" });
 
     expect(response.status).toBe(404);
+  });
+
+  it("returns an empty billing history for a business with no charges", async () => {
+    const token = await registerBusiness();
+
+    const response = await request(app)
+      .get("/subscriptions/me/payments")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([]);
+  });
+
+  it("returns the recorded charges, newest first, scoped to the business", async () => {
+    const token = await registerBusiness();
+    const { rows } = await db.query<{ id: string; business_id: string }>(
+      "SELECT id, business_id FROM subscriptions LIMIT 1",
+    );
+    const subscription = rows[0]!;
+
+    await db.query(
+      `INSERT INTO subscription_payments (subscription_id, business_id, provider, external_id, status, amount, currency, processed_at)
+       VALUES ($1,$2,'mercadopago','pay-old','approved',15000,'ARS','2026-01-01T00:00:00Z'),
+              ($1,$2,'mercadopago','pay-new','rejected',15000,'ARS','2026-02-01T00:00:00Z')`,
+      [subscription.id, subscription.business_id],
+    );
+
+    const response = await request(app)
+      .get("/subscriptions/me/payments")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(2);
+    expect(response.body.items[0].status).toBe("rejected");
+    expect(response.body.items[0].amount).toBe(15000);
+    expect(response.body.items[1].status).toBe("approved");
+  });
+
+  it("does not record the same provider charge twice when a webhook is retried", async () => {
+    const token = await registerBusiness();
+    const { rows } = await db.query<{ id: string; business_id: string }>(
+      "SELECT id, business_id FROM subscriptions LIMIT 1",
+    );
+    const subscription = rows[0]!;
+
+    const insert = `INSERT INTO subscription_payments (subscription_id, business_id, provider, external_id, status, amount, currency, processed_at)
+       VALUES ($1,$2,'mercadopago','pay-dup','pending',15000,'ARS','2026-01-01T00:00:00Z')
+       ON CONFLICT (provider, external_id) DO UPDATE SET status = EXCLUDED.status`;
+    await db.query(insert, [subscription.id, subscription.business_id]);
+    await db.query(insert.replace("'pending'", "'approved'"), [subscription.id, subscription.business_id]);
+
+    const response = await request(app)
+      .get("/subscriptions/me/payments")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0].status).toBe("approved");
   });
 });
