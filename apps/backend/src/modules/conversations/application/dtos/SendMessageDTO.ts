@@ -7,6 +7,11 @@ export interface SendMessageInputDTO {
 
 export interface SendMessageOutputDTO {
   conversationId: string;
-  reply: string;
+  /**
+   * Ausente cuando una persona tomó la conversación: en ese caso el mensaje
+   * del cliente se guarda pero la IA no responde.
+   */
+  reply?: string;
   quickReplies?: string[];
+  botPaused?: boolean;
 }

@@ -8,16 +8,18 @@ export class PostgresConversationRepository implements IConversationRepository {
 
   async save(conversation: Conversation): Promise<void> {
     await this.db.query(
-      `INSERT INTO conversations (id, business_id, client_id, channel, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO conversations (id, business_id, client_id, channel, bot_paused_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (id) DO UPDATE SET
          channel = EXCLUDED.channel,
+         bot_paused_at = EXCLUDED.bot_paused_at,
          updated_at = EXCLUDED.updated_at`,
       [
         conversation.id,
         conversation.businessId,
         conversation.clientId,
         conversation.channel,
+        conversation.botPausedAt,
         conversation.createdAt,
         conversation.updatedAt,
       ],

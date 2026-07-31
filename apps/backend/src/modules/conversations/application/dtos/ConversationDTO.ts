@@ -2,6 +2,8 @@ export interface ConversationOutputDTO {
   id: string;
   clientId: string;
   channel: string;
+  botPaused: boolean;
+  botPausedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

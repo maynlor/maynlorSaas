@@ -203,20 +203,27 @@ export class ReceiveWhatsAppMessageUseCase {
       return result.error instanceof PlanLimitExceededError ? "done" : "retryable";
     }
 
+    // Una persona del negocio tomó esta conversación: el mensaje del cliente
+    // quedó guardado y visible en el panel, pero la respuesta la escribe ella.
+    // Contestar igual le mandaría al cliente dos respuestas distintas.
+    const { reply } = result.value;
+    if (reply === undefined) {
+      this.logger.info("Bot is paused for this conversation; a human will reply", {
+        businessId: business.id,
+      });
+      return "done";
+    }
+
     try {
       if (result.value.quickReplies && result.value.quickReplies.length > 0) {
         await this.whatsAppClient.sendButtonsMessage(
           input.phoneNumberId,
           input.fromPhone,
-          result.value.reply,
+          reply,
           result.value.quickReplies.map((title, index) => ({ id: `opcion_${index + 1}`, title })),
         );
       } else {
-        await this.whatsAppClient.sendTextMessage(
-          input.phoneNumberId,
-          input.fromPhone,
-          result.value.reply,
-        );
+        await this.whatsAppClient.sendTextMessage(input.phoneNumberId, input.fromPhone, reply);
       }
     } catch (err) {
       this.logger.error("Failed to send the WhatsApp reply", {

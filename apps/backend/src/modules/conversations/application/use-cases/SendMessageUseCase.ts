@@ -116,6 +116,13 @@ export class SendMessageUseCase {
     });
     await this.messageRepository.save(userMessage);
 
+    // El mensaje entrante se guarda igual, pero la IA no contesta: hay una
+    // persona atendiendo esta conversación. Guardarlo antes de salir es lo que
+    // hace que quien atiende vea lo que el cliente escribió mientras tanto.
+    if (conversation.isBotPaused) {
+      return Result.ok({ conversationId: conversation.id, botPaused: true });
+    }
+
     const tools = this.buildTools?.(businessId, conversation.clientId) ?? [];
     const toolNames = new Set(tools.map((tool) => tool.name));
     const systemPrompt = PromptEngine.buildSystemPrompt(business.name, {
@@ -126,7 +133,14 @@ export class SendMessageUseCase {
       canRememberClient: toolNames.has("buscar_memoria"),
     });
     const chatMessages: ChatMessage[] = [
-      ...history.map((m) => ({ role: m.role, content: m.content })),
+      // Una respuesta escrita por una persona del negocio se le presenta al
+      // modelo como turno del asistente: para el proveedor el rol `agent` no
+      // existe y la llamada fallaría, y desde la vista del cliente ambas son
+      // "lo que contestó el negocio".
+      ...history.map((m) => ({
+        role: m.role === "agent" ? ("assistant" as const) : m.role,
+        content: m.content,
+      })),
       { role: "user", content: input.message },
     ];
 

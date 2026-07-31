@@ -32,3 +32,15 @@ export const getConversationMessagesSchema = z.object({
   }),
   body: z.object({}).optional(),
 });
+
+export const sendManualReplySchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ message: z.string().min(1).max(4096) }),
+  query: z.object({}).optional(),
+});
+
+export const setBotPausedSchema = z.object({
+  params: z.object({ id: z.string().uuid() }),
+  body: z.object({ paused: z.boolean() }),
+  query: z.object({}).optional(),
+});

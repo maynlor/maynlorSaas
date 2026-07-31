@@ -29,7 +29,11 @@ import { createAnalyticsModule } from "./modules/analytics/analytics.module.js";
 import { createSearchFaqsTool } from "./modules/knowledge/application/tools/SearchFaqsTool.js";
 import { createSearchKnowledgeDocumentsTool } from "./modules/knowledge/application/tools/SearchKnowledgeDocumentsTool.js";
 import { createConversationsModule } from "./modules/conversations/conversations.module.js";
-import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whatsapp/whatsapp.module.js";
+import {
+  createWhatsAppModule,
+  createWhatsAppConversationSender,
+  type WhatsAppModuleConfig,
+} from "./modules/whatsapp/whatsapp.module.js";
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
 import { createSubscriptionsModule } from "./modules/subscriptions/subscriptions.module.js";
 import type { PaymentProvider } from "./modules/subscriptions/application/providers/PaymentProvider.js";
@@ -160,11 +164,21 @@ export function createApp(
   );
   const analytics = createAnalyticsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const memory = createMemoryModule(db, auth.authenticate);
+  // El adaptador de salida se construye antes que conversaciones: es lo que le
+  // permite a una persona responder por WhatsApp desde el panel sin que el
+  // módulo de conversaciones sepa que WhatsApp existe.
+  const conversationChannelSender = createWhatsAppConversationSender(
+    db,
+    whatsappConfig,
+    whatsAppClientOverride,
+  );
+
   const conversations = createConversationsModule(
     db,
     auth.authenticate,
     aiProvider,
     subscriptions.planLimitReader,
+    conversationChannelSender,
     (businessId, clientId) => [
       createSearchProductsTool(products.repository, businessId),
       createSearchServicesTool(services.repository, businessId),

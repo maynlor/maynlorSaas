@@ -3,6 +3,8 @@ export interface ConversationProps {
   businessId: string;
   clientId: string;
   channel: string;
+  /** Cuándo una persona tomó la conversación. `null` = el bot responde. */
+  botPausedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +23,7 @@ export class Conversation {
       businessId: input.businessId,
       clientId: input.clientId,
       channel: input.channel ?? "api",
+      botPausedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -52,5 +55,33 @@ export class Conversation {
 
   get updatedAt(): Date {
     return this.props.updatedAt;
+  }
+
+  get botPausedAt(): Date | null {
+    return this.props.botPausedAt;
+  }
+
+  /**
+   * Mientras una persona esté atendiendo, la IA no debe responder: el cliente
+   * recibiría dos respuestas distintas al mismo mensaje.
+   */
+  get isBotPaused(): boolean {
+    return this.props.botPausedAt !== null;
+  }
+
+  /**
+   * Idempotente a propósito: cada respuesta manual la invoca, y renovar la
+   * marca en cada mensaje perdería el dato de cuándo empezó la intervención.
+   */
+  pauseBot(): void {
+    if (this.props.botPausedAt === null) {
+      this.props.botPausedAt = new Date();
+      this.props.updatedAt = new Date();
+    }
+  }
+
+  resumeBot(): void {
+    this.props.botPausedAt = null;
+    this.props.updatedAt = new Date();
   }
 }

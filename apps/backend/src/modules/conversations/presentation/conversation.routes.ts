@@ -5,6 +5,8 @@ import {
   sendMessageSchema,
   listConversationsSchema,
   getConversationMessagesSchema,
+  sendManualReplySchema,
+  setBotPausedSchema,
 } from "./validation/conversationSchemas.js";
 
 export function buildConversationRouter(
@@ -16,6 +18,8 @@ export function buildConversationRouter(
   router.use(authenticate);
   router.post("/messages", validate(sendMessageSchema), controller.sendMessage);
   router.get("/:id/messages", validate(getConversationMessagesSchema), controller.getMessages);
+  router.post("/:id/reply", validate(sendManualReplySchema), controller.sendManualReply);
+  router.patch("/:id/bot", validate(setBotPausedSchema), controller.setBotPaused);
   router.get("/", validate(listConversationsSchema), controller.list);
 
   return router;

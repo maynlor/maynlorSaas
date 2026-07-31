@@ -1,4 +1,9 @@
-export type MessageRole = "user" | "assistant";
+/**
+ * `agent` es una respuesta escrita por una persona del negocio desde el panel.
+ * Se distingue de `assistant` para poder auditar qué contestó la IA y qué un
+ * humano; de cara al modelo, ambas son turnos del asistente.
+ */
+export type MessageRole = "user" | "assistant" | "agent";
 
 export interface MessageProps {
   id: string;

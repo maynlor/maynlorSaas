@@ -5,6 +5,7 @@ export interface ConversationRow {
   business_id: string;
   client_id: string;
   channel: string;
+  bot_paused_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -16,6 +17,7 @@ export class ConversationFactory {
       businessId: row.business_id,
       clientId: row.client_id,
       channel: row.channel,
+      botPausedAt: row.bot_paused_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });

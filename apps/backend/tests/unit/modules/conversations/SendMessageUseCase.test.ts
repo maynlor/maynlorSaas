@@ -419,4 +419,82 @@ describe("SendMessageUseCase", () => {
     expect(result.isSuccess).toBe(true);
     expect(planLimitReader.getLimit).not.toHaveBeenCalled();
   });
+
+  it("saves the incoming message but does not answer while a person is handling the chat", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    const conversation = Conversation.create({ businessId, clientId: "c1", channel: "whatsapp" });
+    conversation.pauseBot();
+    conversationRepository.findById = vi.fn().mockResolvedValue(conversation);
+
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    const result = await useCase.execute(businessId, {
+      message: "¿Me lo pueden enviar hoy?",
+      conversationId: conversation.id,
+    });
+
+    // El mensaje tiene que quedar guardado igual: es lo que ve quien atiende.
+    expect(messageRepository.save).toHaveBeenCalledTimes(1);
+    // Pero la IA no responde, o el cliente recibiría dos respuestas distintas.
+    expect(aiProvider.generateText).not.toHaveBeenCalled();
+    expect(result.isSuccess).toBe(true);
+    expect(result.value.reply).toBeUndefined();
+    expect(result.value.botPaused).toBe(true);
+  });
+
+  it("presents a human agent's reply to the model as an assistant turn", async () => {
+    // El rol `agent` no existe para el proveedor: mandarlo tal cual rompe la
+    // llamada.
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    const conversation = Conversation.create({ businessId, clientId: "c1" });
+    conversationRepository.findById = vi.fn().mockResolvedValue(conversation);
+    const agentMessage = Message.create({
+      conversationId: conversation.id,
+      businessId,
+      role: "agent",
+      content: "Te lo confirmo en un rato",
+    });
+    messageRepository.findRecentByConversationId = vi.fn().mockResolvedValue([agentMessage]);
+
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    await useCase.execute(businessId, { message: "¿Novedades?", conversationId: conversation.id });
+
+    expect(aiProvider.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "assistant", content: "Te lo confirmo en un rato" },
+          { role: "user", content: "¿Novedades?" },
+        ],
+      }),
+    );
+  });
 });

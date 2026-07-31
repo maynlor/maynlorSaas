@@ -7,6 +7,8 @@ export class ConversationMapper {
       id: conversation.id,
       clientId: conversation.clientId,
       channel: conversation.channel,
+      botPaused: conversation.isBotPaused,
+      botPausedAt: conversation.botPausedAt?.toISOString() ?? null,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
     };

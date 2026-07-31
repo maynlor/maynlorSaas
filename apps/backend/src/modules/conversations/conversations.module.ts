@@ -8,6 +8,9 @@ import { PostgresMessageRepository } from "./infrastructure/persistence/Postgres
 import { SendMessageUseCase, type AIToolsFactory } from "./application/use-cases/SendMessageUseCase.js";
 import { ListConversationsUseCase } from "./application/use-cases/ListConversationsUseCase.js";
 import { GetConversationMessagesUseCase } from "./application/use-cases/GetConversationMessagesUseCase.js";
+import { SendManualReplyUseCase } from "./application/use-cases/SendManualReplyUseCase.js";
+import { SetBotPausedUseCase } from "./application/use-cases/SetBotPausedUseCase.js";
+import type { ConversationChannelSender } from "./application/providers/ConversationChannelSender.js";
 import { ConversationController } from "./presentation/ConversationController.js";
 import { buildConversationRouter } from "./presentation/conversation.routes.js";
 import type { PlanLimitReader } from "../subscriptions/application/services/PlanLimitReader.js";
@@ -19,6 +22,7 @@ export function createConversationsModule(
   authenticate: RequestHandler,
   aiProvider: AIProvider,
   planLimitReader: PlanLimitReader,
+  channelSender: ConversationChannelSender,
   toolsFactory?: AIToolsFactory,
   tracker: ProductTracker = new NoopProductTracker(),
 ): { router: Router; sendMessageUseCase: SendMessageUseCase } {
@@ -43,7 +47,21 @@ export function createConversationsModule(
     messageRepository,
   );
 
-  const controller = new ConversationController(sendMessageUseCase, listUseCase, getMessagesUseCase);
+  const sendManualReplyUseCase = new SendManualReplyUseCase(
+    conversationRepository,
+    messageRepository,
+    channelSender,
+    tracker,
+  );
+  const setBotPausedUseCase = new SetBotPausedUseCase(conversationRepository);
+
+  const controller = new ConversationController(
+    sendMessageUseCase,
+    listUseCase,
+    getMessagesUseCase,
+    sendManualReplyUseCase,
+    setBotPausedUseCase,
+  );
 
   return { router: buildConversationRouter(controller, authenticate), sendMessageUseCase };
 }

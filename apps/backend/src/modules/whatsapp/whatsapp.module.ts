@@ -9,6 +9,8 @@ import type { AIProvider } from "../ai/application/providers/AIProvider.js";
 import type { IBackgroundRunner } from "../../shared/background/BackgroundRunner.js";
 import { MetaWhatsAppClient } from "./infrastructure/clients/MetaWhatsAppClient.js";
 import { PostgresInboundMessageRepository } from "./infrastructure/persistence/PostgresInboundMessageRepository.js";
+import { WhatsAppConversationSender } from "./infrastructure/channel/WhatsAppConversationSender.js";
+import type { ConversationChannelSender } from "../conversations/application/providers/ConversationChannelSender.js";
 import type { WhatsAppClient } from "./application/providers/WhatsAppClient.js";
 import { ReceiveWhatsAppMessageUseCase } from "./application/use-cases/ReceiveWhatsAppMessageUseCase.js";
 import { WhatsAppWebhookController } from "./presentation/WhatsAppWebhookController.js";
@@ -58,4 +60,20 @@ export function createWhatsAppModule(
   const verifySignature = createVerifyMetaSignature(config.appSecret);
 
   return { router: buildWhatsAppRouter(controller, verifySignature) };
+}
+
+/**
+ * Adaptador que le permite al módulo de conversaciones entregar por WhatsApp
+ * una respuesta escrita a mano desde el panel.
+ */
+export function createWhatsAppConversationSender(
+  db: IDbClient,
+  config: WhatsAppModuleConfig,
+  whatsAppClientOverride?: WhatsAppClient,
+): ConversationChannelSender {
+  return new WhatsAppConversationSender(
+    new PostgresBusinessRepository(db),
+    new PostgresClientRepository(db),
+    whatsAppClientOverride ?? new MetaWhatsAppClient(config.accessToken, config.apiVersion),
+  );
 }
