@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector es postgres:16 + la extension "vector" preinstalada
+    # (necesaria para las busquedas semanticas del RAG). Supabase la soporta
+    # nativamente, asi que no hay divergencia con produccion.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: saasbot
       POSTGRES_PASSWORD: saasbot
@@ -11,7 +14,10 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   postgres-test:
-    image: postgres:16-alpine
+    # pgvector/pgvector es postgres:16 + la extension "vector" preinstalada
+    # (necesaria para las busquedas semanticas del RAG). Supabase la soporta
+    # nativamente, asi que no hay divergencia con produccion.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: saasbot
       POSTGRES_PASSWORD: saasbot

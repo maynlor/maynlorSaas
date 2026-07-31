@@ -2,6 +2,7 @@ export interface PromptEngineOptions {
   canSearchProducts?: boolean;
   canSearchServices?: boolean;
   canSearchFaqs?: boolean;
+  canSearchDocuments?: boolean;
   canRememberClient?: boolean;
 }
 
@@ -28,6 +29,12 @@ export class PromptEngine {
     if (options.canSearchFaqs) {
       parts.push(
         "Para consultas sobre horarios, envíos, medios de pago o políticas de la empresa, usá la herramienta buscar_faq y respondé según la respuesta oficial.",
+      );
+    }
+
+    if (options.canSearchDocuments) {
+      parts.push(
+        "Para preguntas abiertas sobre la empresa que no sean de productos, servicios ni FAQ (catálogos, manuales, políticas cargadas como documentos), usá la herramienta buscar_documentos antes de responder.",
       );
     }
 

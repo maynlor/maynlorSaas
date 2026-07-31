@@ -3,6 +3,7 @@ export interface PlanLimitsDTO {
   maxServices: number | null;
   maxUsers: number | null;
   maxConversationsPerMonth: number | null;
+  maxKnowledgeDocuments: number | null;
 }
 
 export interface PlanOutputDTO {

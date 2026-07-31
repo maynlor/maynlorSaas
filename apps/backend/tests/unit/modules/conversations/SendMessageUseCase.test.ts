@@ -57,6 +57,7 @@ function mocks() {
   const aiProvider: AIProvider = {
     generateText: vi.fn().mockResolvedValue("¡Hola! ¿En qué puedo ayudarte?"),
     transcribeAudio: vi.fn().mockResolvedValue(""),
+    embedText: vi.fn().mockResolvedValue([]),
   };
   const planLimitReader = {
     getLimit: vi.fn().mockResolvedValue(null),

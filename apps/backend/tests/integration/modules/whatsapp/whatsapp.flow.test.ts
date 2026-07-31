@@ -27,6 +27,7 @@ const fakeAIProvider: AIProvider = {
     return `[fake reply #${aiCallCount}]`;
   },
   transcribeAudio: async () => "[fake transcription]",
+  embedText: async () => new Array(1536).fill(0),
 };
 
 const sentMessages: { phoneNumberId: string; to: string; body: string }[] = [];

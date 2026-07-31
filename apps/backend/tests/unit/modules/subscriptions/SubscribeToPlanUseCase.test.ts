@@ -21,7 +21,7 @@ function buildPlan(overrides: { isActive?: boolean } = {}): Plan {
     description: null,
     priceMonthly: 15000,
     currency: "ARS",
-    limits: { maxProducts: 200, maxServices: 100, maxUsers: 5, maxConversationsPerMonth: 2000 },
+    limits: { maxProducts: 200, maxServices: 100, maxUsers: 5, maxConversationsPerMonth: 2000, maxKnowledgeDocuments: 50 },
     isActive: overrides.isActive ?? true,
     createdAt: new Date(),
     updatedAt: new Date(),

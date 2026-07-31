@@ -50,3 +50,8 @@ export class PaymentProviderError extends AppError {
   readonly code = "PAYMENT_PROVIDER_ERROR";
   readonly statusCode = 502;
 }
+
+export class AIProviderError extends AppError {
+  readonly code = "AI_PROVIDER_ERROR";
+  readonly statusCode = 502;
+}

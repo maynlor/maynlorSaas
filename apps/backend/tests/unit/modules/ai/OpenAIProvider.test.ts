@@ -144,3 +144,29 @@ describe("OpenAIProvider", () => {
     );
   });
 });
+
+describe("OpenAIProvider.embedText", () => {
+  it("returns the embedding vector for the given text", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [{ embedding: [0.1, 0.2, 0.3] }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OpenAIProvider("key", "gpt-test");
+    const embedding = await provider.embedText("hola mundo");
+
+    expect(embedding).toEqual([0.1, 0.2, 0.3]);
+    const body = JSON.parse(requestBody(fetchMock, 0));
+    expect(body.input).toBe("hola mundo");
+    expect(body.model).toBe("text-embedding-3-small");
+  });
+
+  it("throws when the API key is missing", async () => {
+    const provider = new OpenAIProvider(undefined, "gpt-test");
+    await expect(provider.embedText("hola")).rejects.toThrow(/OPENAI_API_KEY/);
+  });
+
+  it("throws when the API request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
+    const provider = new OpenAIProvider("key", "gpt-test");
+    await expect(provider.embedText("hola")).rejects.toThrow(/status 500/);
+  });
+});

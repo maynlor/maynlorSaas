@@ -63,6 +63,7 @@ function mocks() {
   const aiProvider: AIProvider = {
     generateText: vi.fn(),
     transcribeAudio: vi.fn().mockResolvedValue("Quiero saber el horario"),
+    embedText: vi.fn().mockResolvedValue([]),
   };
 
   return {

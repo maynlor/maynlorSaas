@@ -3,6 +3,10 @@ import type { AITool } from "../../application/tools/AITool.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
+const OPENAI_EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
+// Debe coincidir con el vector(1536) de la migración de document_chunks:
+// cambiar de modelo exige una migración para ajustar la dimensión guardada.
+const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_TOOL_ROUNDS = 5;
 
 interface OpenAIToolCall {
@@ -85,6 +89,32 @@ export class OpenAIProvider implements AIProvider {
 
     const data = (await response.json()) as { text: string };
     return data.text;
+  }
+
+  async embedText(text: string): Promise<number[]> {
+    if (!this.apiKey) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
+
+    const response = await fetch(OPENAI_EMBEDDINGS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI embeddings request failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
+    const embedding = data.data[0]?.embedding;
+    if (!embedding) {
+      throw new Error("OpenAI embeddings API returned no data");
+    }
+    return embedding;
   }
 
   private async requestCompletion(

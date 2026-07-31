@@ -51,7 +51,7 @@ function buildStarterPlan(): Plan {
     description: null,
     priceMonthly: 0,
     currency: "ARS",
-    limits: { maxProducts: 20, maxServices: 10, maxUsers: 1, maxConversationsPerMonth: 200 },
+    limits: { maxProducts: 20, maxServices: 10, maxUsers: 1, maxConversationsPerMonth: 200, maxKnowledgeDocuments: 5 },
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),

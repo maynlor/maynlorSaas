@@ -3,7 +3,7 @@ import type { Plan } from "../../domain/Plan.js";
 import type { ISubscriptionRepository } from "../repositories/ISubscriptionRepository.js";
 import type { IPlanRepository } from "../repositories/IPlanRepository.js";
 
-export type LimitedResource = "products" | "services" | "conversations";
+export type LimitedResource = "products" | "services" | "conversations" | "knowledgeDocuments";
 
 /** Plan al que cae un negocio sin suscripción paga vigente. */
 export const FALLBACK_PLAN_SLUG = "starter";
@@ -34,6 +34,8 @@ export class PlanLimitReader {
         return plan.limits.maxServices;
       case "conversations":
         return plan.limits.maxConversationsPerMonth;
+      case "knowledgeDocuments":
+        return plan.limits.maxKnowledgeDocuments;
     }
   }
 

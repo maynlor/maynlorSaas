@@ -6,6 +6,7 @@ export interface PlanLimitsProps {
   maxServices: number | null;
   maxUsers: number | null;
   maxConversationsPerMonth: number | null;
+  maxKnowledgeDocuments: number | null;
 }
 
 function validateLimit(value: number | null, name: string): Result<number | null, InvalidPlanLimitError> {
@@ -36,12 +37,16 @@ export class PlanLimits {
     );
     if (maxConversationsPerMonth.isFailure) return Result.fail(maxConversationsPerMonth.error);
 
+    const maxKnowledgeDocuments = validateLimit(input.maxKnowledgeDocuments, "maxKnowledgeDocuments");
+    if (maxKnowledgeDocuments.isFailure) return Result.fail(maxKnowledgeDocuments.error);
+
     return Result.ok(
       new PlanLimits({
         maxProducts: maxProducts.value,
         maxServices: maxServices.value,
         maxUsers: maxUsers.value,
         maxConversationsPerMonth: maxConversationsPerMonth.value,
+        maxKnowledgeDocuments: maxKnowledgeDocuments.value,
       }),
     );
   }
@@ -60,6 +65,10 @@ export class PlanLimits {
 
   get maxConversationsPerMonth(): number | null {
     return this.props.maxConversationsPerMonth;
+  }
+
+  get maxKnowledgeDocuments(): number | null {
+    return this.props.maxKnowledgeDocuments;
   }
 
   toProps(): PlanLimitsProps {

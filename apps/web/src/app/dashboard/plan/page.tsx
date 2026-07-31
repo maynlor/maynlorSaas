@@ -12,6 +12,7 @@ interface PlanLimits {
   maxServices: number | null;
   maxUsers: number | null;
   maxConversationsPerMonth: number | null;
+  maxKnowledgeDocuments: number | null;
 }
 
 interface Plan {
@@ -202,6 +203,7 @@ export default function PlanPage() {
                   <li>Servicios: {formatLimit(plan.limits.maxServices)}</li>
                   <li>Usuarios: {formatLimit(plan.limits.maxUsers)}</li>
                   <li>Conversaciones/mes: {formatLimit(plan.limits.maxConversationsPerMonth)}</li>
+                  <li>Documentos: {formatLimit(plan.limits.maxKnowledgeDocuments)}</li>
                 </ul>
                 <Button
                   className="w-full"

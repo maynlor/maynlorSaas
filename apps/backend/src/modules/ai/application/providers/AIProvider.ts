@@ -14,4 +14,6 @@ export interface GenerateTextInput {
 export interface AIProvider {
   generateText(input: GenerateTextInput): Promise<string>;
   transcribeAudio(audio: Buffer, mimeType: string): Promise<string>;
+  /** Vector de embedding para RAG. La dimensión depende del modelo del proveedor. */
+  embedText(text: string): Promise<number[]>;
 }

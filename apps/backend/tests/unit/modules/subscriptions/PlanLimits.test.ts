@@ -9,6 +9,7 @@ describe("PlanLimits", () => {
       maxServices: null,
       maxUsers: null,
       maxConversationsPerMonth: null,
+      maxKnowledgeDocuments: null,
     });
 
     expect(result.isSuccess).toBe(true);
@@ -21,6 +22,7 @@ describe("PlanLimits", () => {
       maxServices: null,
       maxUsers: null,
       maxConversationsPerMonth: null,
+      maxKnowledgeDocuments: null,
     });
 
     expect(result.isFailure).toBe(true);
@@ -36,7 +38,13 @@ describe("Plan.reconstitute", () => {
       description: "Custom",
       priceMonthly: null,
       currency: "ARS",
-      limits: { maxProducts: null, maxServices: null, maxUsers: null, maxConversationsPerMonth: null },
+      limits: {
+        maxProducts: null,
+        maxServices: null,
+        maxUsers: null,
+        maxConversationsPerMonth: null,
+        maxKnowledgeDocuments: null,
+      },
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),

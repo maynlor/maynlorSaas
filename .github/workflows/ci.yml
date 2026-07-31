@@ -20,7 +20,8 @@ jobs:
     # que declarar la variable acá y arriesgarse a que diverja de lo local.
     services:
       postgres-test:
-        image: postgres:16-alpine
+        # postgres:16 + extension pgvector (para las busquedas semanticas del RAG).
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: saasbot
           POSTGRES_PASSWORD: saasbot

@@ -111,6 +111,7 @@ export class SendMessageUseCase {
       canSearchProducts: toolNames.has("buscar_productos"),
       canSearchServices: toolNames.has("buscar_servicios"),
       canSearchFaqs: toolNames.has("buscar_faq"),
+      canSearchDocuments: toolNames.has("buscar_documentos"),
       canRememberClient: toolNames.has("buscar_memoria"),
     });
     const chatMessages: ChatMessage[] = [

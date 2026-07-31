@@ -26,6 +26,7 @@ import { createServicesModule } from "./modules/services/services.module.js";
 import { createSearchServicesTool } from "./modules/services/application/tools/SearchServicesTool.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createSearchFaqsTool } from "./modules/knowledge/application/tools/SearchFaqsTool.js";
+import { createSearchKnowledgeDocumentsTool } from "./modules/knowledge/application/tools/SearchKnowledgeDocumentsTool.js";
 import { createConversationsModule } from "./modules/conversations/conversations.module.js";
 import { createWhatsAppModule, type WhatsAppModuleConfig } from "./modules/whatsapp/whatsapp.module.js";
 import type { WhatsAppClient } from "./modules/whatsapp/application/providers/WhatsAppClient.js";
@@ -129,9 +130,9 @@ export function createApp(
   const subscriptions = createSubscriptionsModule(db, logger, auth.authenticate, paymentProvider);
   const products = createProductsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const services = createServicesModule(db, auth.authenticate, subscriptions.planLimitReader);
-  const knowledge = createKnowledgeModule(db, auth.authenticate);
-  const memory = createMemoryModule(db, auth.authenticate);
   const aiProvider = createAIProvider(aiConfig, aiProviderOverride);
+  const knowledge = createKnowledgeModule(db, auth.authenticate, subscriptions.planLimitReader, aiProvider);
+  const memory = createMemoryModule(db, auth.authenticate);
   const conversations = createConversationsModule(
     db,
     auth.authenticate,
@@ -140,7 +141,8 @@ export function createApp(
     (businessId, clientId) => [
       createSearchProductsTool(products.repository, businessId),
       createSearchServicesTool(services.repository, businessId),
-      createSearchFaqsTool(knowledge.repository, businessId),
+      createSearchFaqsTool(knowledge.faqRepository, businessId),
+      createSearchKnowledgeDocumentsTool(knowledge.documentChunkRepository, aiProvider, businessId),
       createBuscarMemoriaTool(memory.repository, businessId, clientId),
       createGuardarMemoriaTool(memory.repository, businessId, clientId),
     ],
@@ -161,7 +163,8 @@ export function createApp(
       { path: "/clients", router: clients.router },
       { path: "/products", router: products.router },
       { path: "/services", router: services.router },
-      { path: "/faqs", router: knowledge.router },
+      { path: "/faqs", router: knowledge.faqRouter },
+      { path: "/knowledge-documents", router: knowledge.documentRouter },
       { path: "/conversations", router: conversations.router },
       { path: "/webhooks/whatsapp", router: whatsapp.router },
       { path: "/health", router: buildHealthRouter(db) },

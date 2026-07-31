@@ -13,13 +13,18 @@ export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
+  // FormData (subida de archivos): el navegador fija su propio Content-Type
+  // con el boundary del multipart; si lo forzamos a JSON, el server no puede
+  // parsear el body.
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? "GET",
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    ...(options.body !== undefined && { body: JSON.stringify(options.body) }),
+    headers: isFormData ? {} : { "Content-Type": "application/json" },
+    ...(options.body !== undefined && {
+      body: isFormData ? (options.body as FormData) : JSON.stringify(options.body),
+    }),
   });
 
   if (response.status === 204) {

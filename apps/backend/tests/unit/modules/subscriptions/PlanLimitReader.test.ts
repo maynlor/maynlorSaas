@@ -18,7 +18,7 @@ function buildPlan(slug: string, maxProducts: number | null): Plan {
     description: null,
     priceMonthly: slug === "starter" ? 0 : 15000,
     currency: "ARS",
-    limits: { maxProducts, maxServices: 10, maxUsers: 1, maxConversationsPerMonth: 200 },
+    limits: { maxProducts, maxServices: 10, maxUsers: 1, maxConversationsPerMonth: 200, maxKnowledgeDocuments: 5 },
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
