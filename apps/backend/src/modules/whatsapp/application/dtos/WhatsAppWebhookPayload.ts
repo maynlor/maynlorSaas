@@ -9,6 +9,11 @@ export interface WhatsAppDocumentObject extends WhatsAppMediaObject {
   filename?: string;
 }
 
+export interface WhatsAppInteractiveObject {
+  type: string;
+  button_reply?: { id: string; title: string };
+}
+
 export interface WhatsAppIncomingMessage {
   from: string;
   id: string;
@@ -19,6 +24,7 @@ export interface WhatsAppIncomingMessage {
   audio?: WhatsAppMediaObject;
   video?: WhatsAppMediaObject;
   document?: WhatsAppDocumentObject;
+  interactive?: WhatsAppInteractiveObject;
 }
 
 export interface WhatsAppContact {

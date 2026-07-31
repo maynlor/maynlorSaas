@@ -8,4 +8,5 @@ export interface SendMessageInputDTO {
 export interface SendMessageOutputDTO {
   conversationId: string;
   reply: string;
+  quickReplies?: string[];
 }

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
+import { identifyBusiness, resetIdentity } from "./posthog";
 
 export interface AuthUser {
   id: string;
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const biz = await api<AuthBusiness>("/businesses/me");
       setUser(me);
       setBusiness(biz);
+      identifyBusiness(biz.id, { name: biz.name, email: biz.email });
     } catch {
       setUser(null);
       setBusiness(null);
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setUser(null);
       setBusiness(null);
+      resetIdentity();
     }
   }, []);
 

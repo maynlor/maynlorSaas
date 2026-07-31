@@ -11,7 +11,12 @@ function buildChunk(content: string): DocumentChunk {
 }
 
 function createAiProviderMock(): AIProvider {
-  return { generateText: vi.fn(), transcribeAudio: vi.fn(), embedText: vi.fn().mockResolvedValue([0.5, 0.5]) };
+  return {
+    generateText: vi.fn(),
+    transcribeAudio: vi.fn(),
+    embedText: vi.fn().mockResolvedValue([0.5, 0.5]),
+    describeImage: vi.fn(),
+  };
 }
 
 describe("SearchKnowledgeDocumentsTool", () => {

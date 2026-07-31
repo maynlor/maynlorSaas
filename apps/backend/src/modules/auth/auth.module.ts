@@ -15,6 +15,8 @@ import { LoginUseCase } from "./application/use-cases/LoginUseCase.js";
 import { GetCurrentUserUseCase } from "./application/use-cases/GetCurrentUserUseCase.js";
 import { AuthController } from "./presentation/AuthController.js";
 import { buildAuthRouter } from "./presentation/auth.routes.js";
+import type { ProductTracker } from "../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../shared/telemetry/NoopProductTracker.js";
 
 export interface AuthModuleConfig {
   jwtSecret: string;
@@ -29,6 +31,7 @@ export function createAuthModule(
   logger: ILogger,
   authConfig: AuthModuleConfig,
   paymentProvider: PaymentProvider,
+  tracker: ProductTracker = new NoopProductTracker(),
 ): { router: Router; authenticate: RequestHandler } {
   const passwordHasher = new BcryptPasswordHasher();
   const tokenService = new JwtTokenService(authConfig.jwtSecret, authConfig.jwtExpiresIn);
@@ -45,6 +48,7 @@ export function createAuthModule(
     passwordHasher,
     tokenService,
     logger,
+    tracker,
   );
   const loginUseCase = new LoginUseCase(userRepository, passwordHasher, tokenService);
   const getCurrentUserUseCase = new GetCurrentUserUseCase(userRepository);

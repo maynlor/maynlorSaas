@@ -9,6 +9,8 @@ import type { IBusinessRepository } from "../../../businesses/application/reposi
 import type { PaymentProvider } from "../providers/PaymentProvider.js";
 import type { CreateSubscriptionInputDTO, SubscriptionOutputDTO } from "../dtos/SubscriptionDTO.js";
 import { SubscriptionMapper } from "../mappers/SubscriptionMapper.js";
+import type { ProductTracker } from "../../../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../../../shared/telemetry/NoopProductTracker.js";
 
 export class SubscribeToPlanUseCase {
   constructor(
@@ -16,6 +18,7 @@ export class SubscribeToPlanUseCase {
     private readonly subscriptionRepository: ISubscriptionRepository,
     private readonly businessRepository: IBusinessRepository,
     private readonly paymentProvider: PaymentProvider,
+    private readonly tracker: ProductTracker = new NoopProductTracker(),
   ) {}
 
   async execute(
@@ -68,6 +71,11 @@ export class SubscribeToPlanUseCase {
       currentPeriodEnd: checkout.currentPeriodEnd,
     });
     await this.subscriptionRepository.save(subscription);
+
+    this.tracker.track(businessId, "subscription_changed", {
+      planSlug: plan.slug,
+      status: subscription.status,
+    });
 
     return Result.ok({ ...SubscriptionMapper.toDTO(subscription, plan), checkoutUrl: checkout.checkoutUrl });
   }

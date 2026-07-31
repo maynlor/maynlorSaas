@@ -49,10 +49,22 @@ async function resolveMessageText(
         return "[El cliente envió una nota de voz que no se pudo transcribir]";
       }
     }
-    case "image":
-      return media.caption
-        ? `[El cliente envió una imagen con el comentario]: ${media.caption}`
-        : "[El cliente envió una imagen sin comentario]";
+    case "image": {
+      try {
+        const file = await whatsAppClient.downloadMedia(media.mediaId);
+        const description = await aiProvider.describeImage(file.buffer, file.mimeType);
+        return media.caption
+          ? `[El cliente envió una imagen con el comentario "${media.caption}". Descripción de la imagen]: ${description}`
+          : `[El cliente envió una imagen. Descripción de la imagen]: ${description}`;
+      } catch (err) {
+        logger.error("Failed to describe an incoming WhatsApp image", {
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        return media.caption
+          ? `[El cliente envió una imagen con el comentario]: ${media.caption}`
+          : "[El cliente envió una imagen sin comentario]";
+      }
+    }
     case "document":
       return `[El cliente envió un documento${media.filename ? `: ${media.filename}` : ""}]${
         media.caption ? ` con el comentario: ${media.caption}` : ""
@@ -143,11 +155,20 @@ export class ReceiveWhatsAppMessageUseCase {
     }
 
     try {
-      await this.whatsAppClient.sendTextMessage(
-        input.phoneNumberId,
-        input.fromPhone,
-        result.value.reply,
-      );
+      if (result.value.quickReplies && result.value.quickReplies.length > 0) {
+        await this.whatsAppClient.sendButtonsMessage(
+          input.phoneNumberId,
+          input.fromPhone,
+          result.value.reply,
+          result.value.quickReplies.map((title, index) => ({ id: `opcion_${index + 1}`, title })),
+        );
+      } else {
+        await this.whatsAppClient.sendTextMessage(
+          input.phoneNumberId,
+          input.fromPhone,
+          result.value.reply,
+        );
+      }
     } catch (err) {
       this.logger.error("Failed to send the WhatsApp reply", {
         businessId: business.id,

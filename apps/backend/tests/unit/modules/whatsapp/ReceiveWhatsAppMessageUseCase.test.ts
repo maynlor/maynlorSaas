@@ -56,6 +56,7 @@ function mocks() {
   } as unknown as SendMessageUseCase;
   const whatsAppClient: WhatsAppClient = {
     sendTextMessage: vi.fn().mockResolvedValue(undefined),
+    sendButtonsMessage: vi.fn().mockResolvedValue(undefined),
     downloadMedia: vi
       .fn()
       .mockResolvedValue({ buffer: Buffer.from("audio-bytes"), mimeType: "audio/ogg" }),
@@ -64,6 +65,7 @@ function mocks() {
     generateText: vi.fn(),
     transcribeAudio: vi.fn().mockResolvedValue("Quiero saber el horario"),
     embedText: vi.fn().mockResolvedValue([]),
+    describeImage: vi.fn().mockResolvedValue("Una remera azul con estampado floral"),
   };
 
   return {
@@ -140,6 +142,44 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       expect.objectContaining({ message: "Hola", conversationId: undefined, channel: "whatsapp" }),
     );
     expect(whatsAppClient.sendTextMessage).toHaveBeenCalledWith("pn-1", "+5491100000000", "¡Hola!");
+  });
+
+  it("sends interactive buttons instead of plain text when the reply includes quickReplies", async () => {
+    const { businessRepository, clientRepository, conversationRepository, whatsAppClient, aiProvider } =
+      mocks();
+    const sendMessageUseCase = {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({ conversationId: "conv-1", reply: "¿Cuál preferís?", quickReplies: ["Rojo", "Azul"] }),
+      ),
+    } as unknown as SendMessageUseCase;
+
+    const useCase = new ReceiveWhatsAppMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      sendMessageUseCase,
+      whatsAppClient,
+      aiProvider,
+      noopLogger,
+    );
+
+    await useCase.execute({
+      phoneNumberId: "pn-1",
+      fromPhone: "+5491100000000",
+      messageText: "Hola",
+      contactName: "Juan",
+    });
+
+    expect(whatsAppClient.sendTextMessage).not.toHaveBeenCalled();
+    expect(whatsAppClient.sendButtonsMessage).toHaveBeenCalledWith(
+      "pn-1",
+      "+5491100000000",
+      "¿Cuál preferís?",
+      [
+        { id: "opcion_1", title: "Rojo" },
+        { id: "opcion_2", title: "Azul" },
+      ],
+    );
   });
 
   it("reuses the existing client and conversation on subsequent messages", async () => {
@@ -273,7 +313,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
     );
   });
 
-  it("uses the image caption as the message text when present", async () => {
+  it("describes the image with vision and includes the caption when present", async () => {
     const {
       business,
       businessRepository,
@@ -300,11 +340,78 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       media: { type: "image", mediaId: "media-2", caption: "¿Tienen esta remera?" },
     });
 
+    expect(whatsAppClient.downloadMedia).toHaveBeenCalledWith("media-2");
+    expect(aiProvider.describeImage).toHaveBeenCalledWith(Buffer.from("audio-bytes"), "audio/ogg");
     expect(sendMessageUseCase.execute).toHaveBeenCalledWith(
       business.id,
       expect.objectContaining({
         message: expect.stringContaining("¿Tienen esta remera?"),
       }),
+    );
+    expect(sendMessageUseCase.execute).toHaveBeenCalledWith(
+      business.id,
+      expect.objectContaining({
+        message: expect.stringContaining("Una remera azul con estampado floral"),
+      }),
+    );
+  });
+
+  it("describes an image with no caption using vision alone", async () => {
+    const { business, businessRepository, clientRepository, conversationRepository, sendMessageUseCase, whatsAppClient, aiProvider } =
+      mocks();
+    const useCase = new ReceiveWhatsAppMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      sendMessageUseCase,
+      whatsAppClient,
+      aiProvider,
+      noopLogger,
+    );
+
+    await useCase.execute({
+      phoneNumberId: "pn-1",
+      fromPhone: "+5491100000000",
+      media: { type: "image", mediaId: "media-3" },
+    });
+
+    expect(sendMessageUseCase.execute).toHaveBeenCalledWith(
+      business.id,
+      expect.objectContaining({ message: expect.stringContaining("Una remera azul con estampado floral") }),
+    );
+  });
+
+  it("falls back to a caption-only message when describing the image fails", async () => {
+    const {
+      business,
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      sendMessageUseCase,
+      whatsAppClient,
+      aiProvider,
+    } = mocks();
+    vi.mocked(aiProvider.describeImage).mockRejectedValue(new Error("OpenAI vision request failed"));
+
+    const useCase = new ReceiveWhatsAppMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      sendMessageUseCase,
+      whatsAppClient,
+      aiProvider,
+      noopLogger,
+    );
+
+    await useCase.execute({
+      phoneNumberId: "pn-1",
+      fromPhone: "+5491100000000",
+      media: { type: "image", mediaId: "media-4", caption: "¿Tienen esta remera?" },
+    });
+
+    expect(sendMessageUseCase.execute).toHaveBeenCalledWith(
+      business.id,
+      expect.objectContaining({ message: expect.stringContaining("¿Tienen esta remera?") }),
     );
   });
 

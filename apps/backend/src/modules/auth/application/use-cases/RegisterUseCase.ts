@@ -18,6 +18,8 @@ import { Subscription } from "../../../subscriptions/domain/Subscription.js";
 import { Password } from "../../domain/value-objects/Password.js";
 import type { RegisterInputDTO } from "../dtos/RegisterDTO.js";
 import type { AuthResponseDTO } from "../dtos/AuthResponseDTO.js";
+import type { ProductTracker } from "../../../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../../../shared/telemetry/NoopProductTracker.js";
 
 const DEFAULT_PLAN_SLUG = "starter";
 
@@ -34,6 +36,7 @@ export class RegisterUseCase {
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
     private readonly logger: ILogger,
+    private readonly tracker: ProductTracker = new NoopProductTracker(),
   ) {}
 
   async execute(input: RegisterInputDTO): Promise<Result<AuthResponseDTO, AppError>> {
@@ -95,6 +98,8 @@ export class RegisterUseCase {
         businessId: business.id,
         userId: user.id,
       });
+      this.tracker.identify(business.id, { name: business.name, email: business.email.toString() });
+      this.tracker.track(business.id, "business_registered", { businessId: business.id });
 
       return Result.ok({
         token,

@@ -30,10 +30,13 @@ describe("OpenAIProvider", () => {
     const provider = new OpenAIProvider("key", "gpt-test");
     const reply = await provider.generateText({ systemPrompt: "sys", messages: [] });
 
-    expect(reply).toBe("Hola");
+    expect(reply.text).toBe("Hola");
     expect(fetchMock).toHaveBeenCalledOnce();
     const body = JSON.parse(requestBody(fetchMock, 0));
-    expect(body.tools).toBeUndefined();
+    // La herramienta terminal de botones (responder_con_opciones) siempre va
+    // incluida, aun sin tools de negocio.
+    expect(body.tools).toHaveLength(1);
+    expect(body.tools[0].function.name).toBe("responder_con_opciones");
   });
 
   it("executes tool calls and feeds results back until a final answer", async () => {
@@ -70,12 +73,12 @@ describe("OpenAIProvider", () => {
       tools: [tool],
     });
 
-    expect(reply).toBe("Tenemos remeras a $100");
+    expect(reply.text).toBe("Tenemos remeras a $100");
     expect(tool.execute).toHaveBeenCalledWith({ query: "remera" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const firstBody = JSON.parse(requestBody(fetchMock, 0));
-    expect(firstBody.tools).toHaveLength(1);
+    expect(firstBody.tools).toHaveLength(2);
     expect(firstBody.tools[0].function.name).toBe("buscar_productos");
 
     const secondBody = JSON.parse(requestBody(fetchMock, 1));
@@ -103,7 +106,7 @@ describe("OpenAIProvider", () => {
     const provider = new OpenAIProvider("key", "gpt-test");
     const reply = await provider.generateText({ systemPrompt: "sys", messages: [], tools: [] });
 
-    expect(reply).toBe("No pude consultar eso");
+    expect(reply.text).toBe("No pude consultar eso");
     const secondBody = JSON.parse(requestBody(fetchMock, 1));
     const toolMessage = secondBody.messages.find((m: { role: string }) => m.role === "tool");
     expect(toolMessage.content).toContain("not found");
@@ -145,6 +148,91 @@ describe("OpenAIProvider", () => {
   });
 });
 
+describe("OpenAIProvider quick replies (responder_con_opciones)", () => {
+  it("returns quickReplies when the model calls the terminal tool", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        completion({
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "responder_con_opciones",
+                arguments: JSON.stringify({
+                  mensaje: "¿Cuál preferís?",
+                  opciones: ["Rojo", "Azul", "Verde"],
+                }),
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OpenAIProvider("key", "gpt-test");
+    const reply = await provider.generateText({ systemPrompt: "sys", messages: [] });
+
+    expect(reply.text).toBe("¿Cuál preferís?");
+    expect(reply.quickReplies).toEqual(["Rojo", "Azul", "Verde"]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("caps quickReplies at 3 options even if the model returns more", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        completion({
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "responder_con_opciones",
+                arguments: JSON.stringify({
+                  mensaje: "Elegí una opción",
+                  opciones: ["A", "B", "C", "D"],
+                }),
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OpenAIProvider("key", "gpt-test");
+    const reply = await provider.generateText({ systemPrompt: "sys", messages: [] });
+
+    expect(reply.quickReplies).toEqual(["A", "B", "C"]);
+  });
+
+  it("throws when the terminal tool call has malformed arguments", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        completion({
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "responder_con_opciones", arguments: "not json" },
+            },
+          ],
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OpenAIProvider("key", "gpt-test");
+    await expect(provider.generateText({ systemPrompt: "sys", messages: [] })).rejects.toThrow(
+      /responder_con_opciones/,
+    );
+  });
+});
+
 describe("OpenAIProvider.embedText", () => {
   it("returns the embedding vector for the given text", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [{ embedding: [0.1, 0.2, 0.3] }] }));
@@ -168,5 +256,35 @@ describe("OpenAIProvider.embedText", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
     const provider = new OpenAIProvider("key", "gpt-test");
     await expect(provider.embedText("hola")).rejects.toThrow(/status 500/);
+  });
+});
+
+describe("OpenAIProvider.describeImage", () => {
+  it("sends the image as a base64 data URL alongside the vision prompt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(completion({ content: "Una remera azul" })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OpenAIProvider("key", "gpt-test");
+    const description = await provider.describeImage(Buffer.from("fake-image-bytes"), "image/jpeg");
+
+    expect(description).toBe("Una remera azul");
+    const body = JSON.parse(requestBody(fetchMock, 0));
+    const content = body.messages[0].content;
+    expect(content[0].type).toBe("text");
+    expect(content[1]).toEqual({
+      type: "image_url",
+      image_url: { url: `data:image/jpeg;base64,${Buffer.from("fake-image-bytes").toString("base64")}` },
+    });
+  });
+
+  it("throws when the API key is missing", async () => {
+    const provider = new OpenAIProvider(undefined, "gpt-test");
+    await expect(provider.describeImage(Buffer.from("x"), "image/jpeg")).rejects.toThrow(/OPENAI_API_KEY/);
+  });
+
+  it("throws when the API request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
+    const provider = new OpenAIProvider("key", "gpt-test");
+    await expect(provider.describeImage(Buffer.from("x"), "image/jpeg")).rejects.toThrow(/status 500/);
   });
 });

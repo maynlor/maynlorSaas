@@ -20,12 +20,15 @@ import { FaqController } from "./presentation/FaqController.js";
 import { buildFaqRouter } from "./presentation/faq.routes.js";
 import { KnowledgeDocumentController } from "./presentation/KnowledgeDocumentController.js";
 import { buildKnowledgeDocumentRouter } from "./presentation/knowledgeDocument.routes.js";
+import type { ProductTracker } from "../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../shared/telemetry/NoopProductTracker.js";
 
 export function createKnowledgeModule(
   db: IDbClient,
   authenticate: RequestHandler,
   planLimitReader: PlanLimitReader,
   aiProvider: AIProvider,
+  tracker: ProductTracker = new NoopProductTracker(),
 ): {
   faqRouter: Router;
   documentRouter: Router;
@@ -57,6 +60,7 @@ export function createKnowledgeModule(
     planLimitReader,
     aiProvider,
     pdfTextExtractor,
+    tracker,
   );
   const listDocumentsUseCase = new ListKnowledgeDocumentsUseCase(documentRepository);
   const deleteDocumentUseCase = new DeleteKnowledgeDocumentUseCase(documentRepository, documentChunkRepository);

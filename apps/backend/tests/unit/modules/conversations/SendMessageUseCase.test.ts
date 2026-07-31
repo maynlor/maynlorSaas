@@ -16,6 +16,7 @@ import {
   InfrastructureError,
   PlanLimitExceededError,
 } from "@shared/errors/AppError.js";
+import type { ProductTracker } from "@shared/telemetry/ProductTracker.js";
 
 const businessId = "b1";
 
@@ -55,9 +56,10 @@ function mocks() {
     findByConversationId: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   };
   const aiProvider: AIProvider = {
-    generateText: vi.fn().mockResolvedValue("¡Hola! ¿En qué puedo ayudarte?"),
+    generateText: vi.fn().mockResolvedValue({ text: "¡Hola! ¿En qué puedo ayudarte?" }),
     transcribeAudio: vi.fn().mockResolvedValue(""),
     embedText: vi.fn().mockResolvedValue([]),
+    describeImage: vi.fn().mockResolvedValue(""),
   };
   const planLimitReader = {
     getLimit: vi.fn().mockResolvedValue(null),
@@ -97,6 +99,64 @@ describe("SendMessageUseCase", () => {
     expect(result.value.reply).toBe("¡Hola! ¿En qué puedo ayudarte?");
     expect(conversationRepository.save).toHaveBeenCalledOnce();
     expect(messageRepository.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("tracks message_sent on the product tracker after a successful reply", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+      undefined,
+      tracker,
+    );
+
+    await useCase.execute(businessId, { message: "Hola", clientId: "c1", channel: "whatsapp" });
+
+    expect(tracker.track).toHaveBeenCalledWith(
+      businessId,
+      "message_sent",
+      expect.objectContaining({ channel: "whatsapp" }),
+    );
+  });
+
+  it("propagates quickReplies from the AI provider when present", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    aiProvider.generateText = vi
+      .fn()
+      .mockResolvedValue({ text: "¿Cuál preferís?", quickReplies: ["Rojo", "Azul"] });
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    const result = await useCase.execute(businessId, { message: "Hola", clientId: "c1" });
+
+    expect(result.isSuccess).toBe(true);
+    expect(result.value.reply).toBe("¿Cuál preferís?");
+    expect(result.value.quickReplies).toEqual(["Rojo", "Azul"]);
   });
 
   it("continues an existing conversation, sending prior history to the provider", async () => {
@@ -265,6 +325,7 @@ describe("SendMessageUseCase", () => {
     } = mocks();
     planLimitReader.getLimit = vi.fn().mockResolvedValue(5);
     conversationRepository.countCreatedSince = vi.fn().mockResolvedValue(5);
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
 
     const useCase = new SendMessageUseCase(
       businessRepository,
@@ -273,6 +334,8 @@ describe("SendMessageUseCase", () => {
       messageRepository,
       aiProvider,
       planLimitReader,
+      undefined,
+      tracker,
     );
 
     const result = await useCase.execute(businessId, { message: "Hola", clientId: "c1" });
@@ -280,6 +343,11 @@ describe("SendMessageUseCase", () => {
     expect(result.isFailure).toBe(true);
     expect(result.error).toBeInstanceOf(PlanLimitExceededError);
     expect(conversationRepository.save).not.toHaveBeenCalled();
+    expect(tracker.track).toHaveBeenCalledWith(
+      businessId,
+      "plan_limit_exceeded",
+      expect.objectContaining({ limitType: "conversations" }),
+    );
   });
 
   it("does not check the conversation quota when continuing an existing conversation", async () => {

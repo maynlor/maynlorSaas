@@ -12,6 +12,8 @@ import type { PlanLimitReader } from "../../../subscriptions/application/service
 import type { AIProvider } from "../../../ai/application/providers/AIProvider.js";
 import type { KnowledgeDocumentOutputDTO, UploadKnowledgeDocumentInputDTO } from "../dtos/KnowledgeDocumentDTO.js";
 import { KnowledgeDocumentMapper } from "../mappers/KnowledgeDocumentMapper.js";
+import type { ProductTracker } from "../../../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../../../shared/telemetry/NoopProductTracker.js";
 
 export class UploadKnowledgeDocumentUseCase {
   constructor(
@@ -20,6 +22,7 @@ export class UploadKnowledgeDocumentUseCase {
     private readonly planLimitReader: PlanLimitReader,
     private readonly aiProvider: AIProvider,
     private readonly pdfTextExtractor: IPdfTextExtractor,
+    private readonly tracker: ProductTracker = new NoopProductTracker(),
   ) {}
 
   async execute(
@@ -30,6 +33,7 @@ export class UploadKnowledgeDocumentUseCase {
     if (maxDocuments !== null) {
       const currentCount = await this.documentRepository.countByBusinessId(businessId);
       if (currentCount >= maxDocuments) {
+        this.tracker.track(businessId, "plan_limit_exceeded", { limitType: "knowledgeDocuments" });
         return Result.fail(
           new PlanLimitExceededError(
             `Knowledge document limit reached for the current plan (${maxDocuments}). Upgrade your plan to add more.`,
@@ -84,6 +88,8 @@ export class UploadKnowledgeDocumentUseCase {
       );
     }
     await this.chunkRepository.saveMany(chunks);
+
+    this.tracker.track(businessId, "document_uploaded", { sourceType: input.sourceType });
 
     return Result.ok(KnowledgeDocumentMapper.toDTO(document));
   }

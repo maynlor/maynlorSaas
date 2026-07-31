@@ -7,6 +7,7 @@ import type { PlanLimitReader } from "@modules/subscriptions/application/service
 import type { AIProvider } from "@modules/ai/application/providers/AIProvider.js";
 import { PlanLimitExceededError, DomainError, AIProviderError } from "@shared/errors/AppError.js";
 import { EmptyKnowledgeDocumentContentError } from "@modules/knowledge/domain/errors/KnowledgeDocumentDomainErrors.js";
+import type { ProductTracker } from "@shared/telemetry/ProductTracker.js";
 
 const businessId = "b1";
 
@@ -38,6 +39,7 @@ function createAiProviderMock(): AIProvider {
     generateText: vi.fn(),
     transcribeAudio: vi.fn(),
     embedText: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+    describeImage: vi.fn(),
   };
 }
 
@@ -72,6 +74,50 @@ describe("UploadKnowledgeDocumentUseCase", () => {
     const savedChunks = vi.mocked(chunkRepo.saveMany).mock.calls[0]![0];
     expect(savedChunks).toHaveLength(1);
     expect(savedChunks[0]!.embedding).toEqual([0.1, 0.2, 0.3]);
+  });
+
+  it("tracks document_uploaded on the product tracker", async () => {
+    const documentRepo = createDocumentRepoMock();
+    const chunkRepo = createChunkRepoMock();
+    const aiProvider = createAiProviderMock();
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
+    const useCase = new UploadKnowledgeDocumentUseCase(
+      documentRepo,
+      chunkRepo,
+      createPlanLimitReaderMock(),
+      aiProvider,
+      createPdfExtractorMock(),
+      tracker,
+    );
+
+    await useCase.execute(businessId, { title: "Políticas", sourceType: "text", content: "Contenido válido" });
+
+    expect(tracker.track).toHaveBeenCalledWith(
+      businessId,
+      "document_uploaded",
+      expect.objectContaining({ sourceType: "text" }),
+    );
+  });
+
+  it("tracks plan_limit_exceeded when the document limit is reached", async () => {
+    const documentRepo = createDocumentRepoMock({ countByBusinessId: vi.fn().mockResolvedValue(5) });
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
+    const useCase = new UploadKnowledgeDocumentUseCase(
+      documentRepo,
+      createChunkRepoMock(),
+      createPlanLimitReaderMock(5),
+      createAiProviderMock(),
+      createPdfExtractorMock(),
+      tracker,
+    );
+
+    await useCase.execute(businessId, { title: "Doc", sourceType: "text", content: "algo" });
+
+    expect(tracker.track).toHaveBeenCalledWith(
+      businessId,
+      "plan_limit_exceeded",
+      expect.objectContaining({ limitType: "knowledgeDocuments" }),
+    );
   });
 
   it("uploads a PDF by extracting its text before chunking", async () => {

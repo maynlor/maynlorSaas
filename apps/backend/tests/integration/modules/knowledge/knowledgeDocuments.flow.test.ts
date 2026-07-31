@@ -26,9 +26,10 @@ const TEST_DATABASE_URL =
 const noopLogger: ILogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
 
 const fakeAIProvider: AIProvider = {
-  generateText: async () => "[fake reply]",
+  generateText: async () => ({ text: "[fake reply]" }),
   transcribeAudio: async () => "[fake transcription]",
   embedText: async () => new Array(1536).fill(0.01),
+  describeImage: async () => "[fake image description]",
 };
 
 describe("Knowledge documents flow", () => {

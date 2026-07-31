@@ -39,6 +39,7 @@ async function main(): Promise<void> {
     },
     undefined,
     config.redisUrl,
+    { apiKey: config.postHogApiKey, host: config.postHogHost },
   );
 
   app.listen(config.port, () => {

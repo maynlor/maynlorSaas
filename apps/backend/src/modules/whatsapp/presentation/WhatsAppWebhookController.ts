@@ -20,6 +20,14 @@ function toReceiveInput(
     return { fromPhone: message.from, contactName, messageText: message.text.body };
   }
 
+  if (message.type === "interactive" && message.interactive?.button_reply) {
+    return {
+      fromPhone: message.from,
+      contactName,
+      messageText: message.interactive.button_reply.title,
+    };
+  }
+
   if (SUPPORTED_MEDIA_TYPES.includes(message.type as WhatsAppMediaType)) {
     const mediaType = message.type as WhatsAppMediaType;
     const mediaObject = message[mediaType];

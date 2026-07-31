@@ -11,6 +11,7 @@ import type { IPasswordHasher } from "@shared/security/PasswordHasher.js";
 import type { ITokenService } from "@shared/security/TokenService.js";
 import type { ILogger } from "@shared/logger/Logger.js";
 import { ConflictError, DomainError } from "@shared/errors/AppError.js";
+import type { ProductTracker } from "@shared/telemetry/ProductTracker.js";
 
 function createDbMock(): IDbClient {
   return {
@@ -142,6 +143,40 @@ describe("RegisterUseCase", () => {
     expect(userRepo.save).toHaveBeenCalledOnce();
     expect(planRepo.findBySlug).toHaveBeenCalledWith("starter");
     expect(subscriptionRepo.save).toHaveBeenCalledOnce();
+  });
+
+  it("tracks business_registered on the product tracker", async () => {
+    dbMock = createDbMock();
+    const businessRepo = createBusinessRepoMock();
+    const userRepo = createUserRepoMock();
+    const planRepo = createPlanRepoMock();
+    const subscriptionRepo = createSubscriptionRepoMock();
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
+    const useCase = new RegisterUseCase(
+      dbMock,
+      () => businessRepo,
+      () => userRepo,
+      () => planRepo,
+      () => subscriptionRepo,
+      paymentProvider,
+      passwordHasher,
+      tokenService,
+      noopLogger,
+      tracker,
+    );
+
+    const result = await useCase.execute(validInput);
+
+    expect(result.isSuccess).toBe(true);
+    expect(tracker.identify).toHaveBeenCalledWith(
+      result.value.business.id,
+      expect.objectContaining({ email: "biz@acme.com" }),
+    );
+    expect(tracker.track).toHaveBeenCalledWith(
+      result.value.business.id,
+      "business_registered",
+      expect.any(Object),
+    );
   });
 
   it("still registers the business when the default plan is missing", async () => {

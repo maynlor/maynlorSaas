@@ -26,6 +26,8 @@ const envSchema = z.object({
   // Sin esto, el rate limiting queda en memoria por instancia: con varias
   // instancias detrás del balanceador cada una lleva su propia cuenta.
   REDIS_URL: z.string().optional(),
+  POSTHOG_API_KEY: z.string().optional(),
+  POSTHOG_HOST: z.string().default("https://us.i.posthog.com"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -56,4 +58,6 @@ export const config = {
   rateLimitAuthMax: parsed.data.RATE_LIMIT_AUTH_MAX,
   rateLimitWebhookMax: parsed.data.RATE_LIMIT_WEBHOOK_MAX,
   redisUrl: parsed.data.REDIS_URL,
+  postHogApiKey: parsed.data.POSTHOG_API_KEY,
+  postHogHost: parsed.data.POSTHOG_HOST,
 };

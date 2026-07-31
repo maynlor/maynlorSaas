@@ -23,10 +23,11 @@ const receivedInputs: GenerateTextInput[] = [];
 const fakeAIProvider: AIProvider = {
   generateText: async (input) => {
     receivedInputs.push(input);
-    return `[fake reply #${receivedInputs.length}]`;
+    return { text: `[fake reply #${receivedInputs.length}]` };
   },
   transcribeAudio: async () => "[fake transcription]",
   embedText: async () => new Array(1536).fill(0),
+  describeImage: async () => "[fake image description]",
 };
 
 describe("Conversations flow (client -> messages -> memory -> inbox)", () => {

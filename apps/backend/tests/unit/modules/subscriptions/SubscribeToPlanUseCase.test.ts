@@ -10,6 +10,7 @@ import type { IBusinessRepository } from "@modules/businesses/application/reposi
 import type { PaymentProvider } from "@modules/subscriptions/application/providers/PaymentProvider.js";
 import { NotFoundError, PaymentProviderError } from "@shared/errors/AppError.js";
 import { PlanNotActiveError } from "@modules/subscriptions/domain/errors/SubscriptionDomainErrors.js";
+import type { ProductTracker } from "@shared/telemetry/ProductTracker.js";
 
 const businessId = "b1";
 
@@ -94,6 +95,29 @@ describe("SubscribeToPlanUseCase", () => {
     expect(result.value.plan.slug).toBe("pro");
     expect(result.value.status).toBe("active");
     expect(subscriptionRepo.save).toHaveBeenCalledOnce();
+  });
+
+  it("tracks subscription_changed on the product tracker", async () => {
+    const planRepo = planRepoMock();
+    const subscriptionRepo = subscriptionRepoMock();
+    const businessRepo = businessRepoMock();
+    const paymentProvider = paymentProviderMock();
+    const tracker: ProductTracker = { track: vi.fn(), identify: vi.fn() };
+    const useCase = new SubscribeToPlanUseCase(
+      planRepo,
+      subscriptionRepo,
+      businessRepo,
+      paymentProvider,
+      tracker,
+    );
+
+    await useCase.execute(businessId, { planSlug: "pro" });
+
+    expect(tracker.track).toHaveBeenCalledWith(
+      businessId,
+      "subscription_changed",
+      expect.objectContaining({ planSlug: "pro" }),
+    );
   });
 
   it("returns the checkout URL when the provider requires authorization", async () => {

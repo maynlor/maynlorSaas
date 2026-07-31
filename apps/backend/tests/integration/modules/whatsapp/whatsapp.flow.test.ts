@@ -24,16 +24,20 @@ let aiCallCount = 0;
 const fakeAIProvider: AIProvider = {
   generateText: async () => {
     aiCallCount += 1;
-    return `[fake reply #${aiCallCount}]`;
+    return { text: `[fake reply #${aiCallCount}]` };
   },
   transcribeAudio: async () => "[fake transcription]",
   embedText: async () => new Array(1536).fill(0),
+  describeImage: async () => "[fake image description]",
 };
 
 const sentMessages: { phoneNumberId: string; to: string; body: string }[] = [];
 const fakeWhatsAppClient: WhatsAppClient = {
   sendTextMessage: async (phoneNumberId, to, body) => {
     sentMessages.push({ phoneNumberId, to, body });
+  },
+  sendButtonsMessage: async (phoneNumberId, to, bodyText) => {
+    sentMessages.push({ phoneNumberId, to, body: bodyText });
   },
   downloadMedia: async () => ({ buffer: Buffer.from(""), mimeType: "application/octet-stream" }),
 };
@@ -53,6 +57,41 @@ function buildIncomingMessagePayload(phoneNumberId: string, from: string, text: 
               contacts: [{ profile: { name: "Juan Pérez" }, wa_id: from }],
               messages: [
                 { from, id: `wamid-${Date.now()}`, timestamp: "0", type: "text", text: { body: text } },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildIncomingButtonReplyPayload(
+  phoneNumberId: string,
+  from: string,
+  buttonId: string,
+  buttonTitle: string,
+) {
+  return {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: "waba-1",
+        changes: [
+          {
+            field: "messages",
+            value: {
+              messaging_product: "whatsapp",
+              metadata: { display_phone_number: "15550001111", phone_number_id: phoneNumberId },
+              contacts: [{ profile: { name: "Juan Pérez" }, wa_id: from }],
+              messages: [
+                {
+                  from,
+                  id: `wamid-${Date.now()}`,
+                  timestamp: "0",
+                  type: "interactive",
+                  interactive: { type: "button_reply", button_reply: { id: buttonId, title: buttonTitle } },
+                },
               ],
             },
           },
@@ -168,6 +207,39 @@ describe("WhatsApp webhook", () => {
       .get(`/conversations/${conversationId}/messages`)
       .set("Authorization", `Bearer ${token}`);
     expect(messagesRes.body.items).toHaveLength(4);
+  });
+
+  it("treats a tapped button reply as the message text (title, not id)", async () => {
+    const registerRes = await request(app)
+      .post("/auth/register")
+      .send({
+        business: { name: "Acme 2", email: "biz2@acme.com", slug: "acme-2" },
+        user: { email: "owner2@acme.com", password: "supersecret" },
+      });
+    const token = registerRes.body.token as string;
+
+    await request(app)
+      .patch("/businesses/me")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ phoneNumberId: "pn-456" });
+
+    const payload = buildIncomingButtonReplyPayload("pn-456", "5491100000001", "opcion_1", "Rojo");
+    const res = await request(app).post("/webhooks/whatsapp").send(payload);
+    expect(res.status).toBe(200);
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0]?.to).toBe("5491100000001");
+
+    const messagesRes = await request(app)
+      .get(
+        `/conversations/${
+          (
+            await request(app).get("/conversations").set("Authorization", `Bearer ${token}`)
+          ).body.items[0].id
+        }/messages`,
+      )
+      .set("Authorization", `Bearer ${token}`);
+    expect(messagesRes.body.items[0].content).toBe("Rojo");
   });
 
   it("always responds 200 even when the phone_number_id is unknown", async () => {

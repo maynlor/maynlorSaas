@@ -18,6 +18,8 @@ import { Message } from "../../domain/Message.js";
 import type { IConversationRepository } from "../repositories/IConversationRepository.js";
 import type { IMessageRepository } from "../repositories/IMessageRepository.js";
 import type { SendMessageInputDTO, SendMessageOutputDTO } from "../dtos/SendMessageDTO.js";
+import type { ProductTracker } from "../../../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../../../shared/telemetry/NoopProductTracker.js";
 
 const HISTORY_LIMIT = 1000;
 
@@ -32,6 +34,7 @@ export class SendMessageUseCase {
     private readonly aiProvider: AIProvider,
     private readonly planLimitReader: PlanLimitReader,
     private readonly buildTools?: AIToolsFactory,
+    private readonly tracker: ProductTracker = new NoopProductTracker(),
   ) {}
 
   async execute(
@@ -67,6 +70,7 @@ export class SendMessageUseCase {
           startOfCurrentMonth(),
         );
         if (currentCount >= maxConversations) {
+          this.tracker.track(businessId, "plan_limit_exceeded", { limitType: "conversations" });
           return Result.fail(
             new PlanLimitExceededError(
               `Monthly conversation limit reached for the current plan (${maxConversations}). Upgrade your plan to start more conversations.`,
@@ -116,12 +120,15 @@ export class SendMessageUseCase {
     ];
 
     let reply: string;
+    let quickReplies: string[] | undefined;
     try {
-      reply = await this.aiProvider.generateText({
+      const result = await this.aiProvider.generateText({
         systemPrompt,
         messages: chatMessages,
         ...(tools.length > 0 && { tools }),
       });
+      reply = result.text;
+      quickReplies = result.quickReplies;
     } catch {
       return Result.fail(new InfrastructureError("AI provider request failed"));
     }
@@ -134,6 +141,8 @@ export class SendMessageUseCase {
     });
     await this.messageRepository.save(assistantMessage);
 
-    return Result.ok({ conversationId: conversation.id, reply });
+    this.tracker.track(businessId, "message_sent", { channel: input.channel ?? "unknown" });
+
+    return Result.ok({ conversationId: conversation.id, reply, ...(quickReplies && { quickReplies }) });
   }
 }

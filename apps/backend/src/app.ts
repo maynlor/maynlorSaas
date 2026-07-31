@@ -38,6 +38,14 @@ import { MercadoPagoPaymentProvider } from "./modules/subscriptions/infrastructu
 import { createMemoryModule } from "./modules/memory/memory.module.js";
 import { createGuardarMemoriaTool } from "./modules/memory/application/tools/GuardarMemoriaTool.js";
 import { createBuscarMemoriaTool } from "./modules/memory/application/tools/BuscarMemoriaTool.js";
+import type { ProductTracker } from "./shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "./shared/telemetry/NoopProductTracker.js";
+import { PostHogTracker } from "./shared/telemetry/PostHogTracker.js";
+
+export interface PostHogModuleConfig {
+  apiKey: string | undefined;
+  host: string;
+}
 
 export interface MercadoPagoModuleConfig {
   accessToken: string | undefined;
@@ -79,6 +87,13 @@ function createPaymentProvider(config: MercadoPagoModuleConfig, corsOrigin: stri
   return new MercadoPagoPaymentProvider(config.accessToken, config.webhookSecret, config.backUrl ?? corsOrigin);
 }
 
+function createProductTracker(config: PostHogModuleConfig): ProductTracker {
+  if (!config.apiKey) {
+    return new NoopProductTracker();
+  }
+  return new PostHogTracker(config.apiKey, config.host);
+}
+
 export function createApp(
   db: IDbClient,
   logger: ILogger,
@@ -102,6 +117,8 @@ export function createApp(
   rateLimitConfig: RateLimitModuleConfig = DEFAULT_RATE_LIMITS,
   redisClientOverride?: Redis,
   redisUrl?: string,
+  postHogConfig: PostHogModuleConfig = { apiKey: undefined, host: "https://us.i.posthog.com" },
+  trackerOverride?: ProductTracker,
 ): Express {
   const app = express();
 
@@ -125,14 +142,21 @@ export function createApp(
   app.use("/webhooks", createWebhookRateLimiter(rateLimitConfig.webhook, createRateLimitStore(redisClient, "webhook")));
 
   const paymentProvider = paymentProviderOverride ?? createPaymentProvider(mercadoPagoConfig, corsOrigin);
-  const auth = createAuthModule(db, logger, authConfig, paymentProvider);
+  const tracker = trackerOverride ?? createProductTracker(postHogConfig);
+  const auth = createAuthModule(db, logger, authConfig, paymentProvider, tracker);
   const businesses = createBusinessesModule(db, auth.authenticate);
   const clients = createClientsModule(db, auth.authenticate);
-  const subscriptions = createSubscriptionsModule(db, logger, auth.authenticate, paymentProvider);
+  const subscriptions = createSubscriptionsModule(db, logger, auth.authenticate, paymentProvider, tracker);
   const products = createProductsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const services = createServicesModule(db, auth.authenticate, subscriptions.planLimitReader);
   const aiProvider = createAIProvider(aiConfig, aiProviderOverride);
-  const knowledge = createKnowledgeModule(db, auth.authenticate, subscriptions.planLimitReader, aiProvider);
+  const knowledge = createKnowledgeModule(
+    db,
+    auth.authenticate,
+    subscriptions.planLimitReader,
+    aiProvider,
+    tracker,
+  );
   const analytics = createAnalyticsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const memory = createMemoryModule(db, auth.authenticate);
   const conversations = createConversationsModule(
@@ -148,6 +172,7 @@ export function createApp(
       createBuscarMemoriaTool(memory.repository, businessId, clientId),
       createGuardarMemoriaTool(memory.repository, businessId, clientId),
     ],
+    tracker,
   );
   const whatsapp = createWhatsAppModule(
     db,

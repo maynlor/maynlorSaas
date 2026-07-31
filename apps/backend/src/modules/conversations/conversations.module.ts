@@ -11,6 +11,8 @@ import { GetConversationMessagesUseCase } from "./application/use-cases/GetConve
 import { ConversationController } from "./presentation/ConversationController.js";
 import { buildConversationRouter } from "./presentation/conversation.routes.js";
 import type { PlanLimitReader } from "../subscriptions/application/services/PlanLimitReader.js";
+import type { ProductTracker } from "../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../shared/telemetry/NoopProductTracker.js";
 
 export function createConversationsModule(
   db: IDbClient,
@@ -18,6 +20,7 @@ export function createConversationsModule(
   aiProvider: AIProvider,
   planLimitReader: PlanLimitReader,
   toolsFactory?: AIToolsFactory,
+  tracker: ProductTracker = new NoopProductTracker(),
 ): { router: Router; sendMessageUseCase: SendMessageUseCase } {
   const businessRepository = new PostgresBusinessRepository(db);
   const clientRepository = new PostgresClientRepository(db);
@@ -32,6 +35,7 @@ export function createConversationsModule(
     aiProvider,
     planLimitReader,
     toolsFactory,
+    tracker,
   );
   const listUseCase = new ListConversationsUseCase(conversationRepository);
   const getMessagesUseCase = new GetConversationMessagesUseCase(

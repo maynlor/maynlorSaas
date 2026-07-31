@@ -19,12 +19,15 @@ import { buildSubscriptionRouter } from "./presentation/subscription.routes.js";
 import { MercadoPagoWebhookController } from "./presentation/MercadoPagoWebhookController.js";
 import { buildMercadoPagoWebhookRouter } from "./presentation/mercadopago-webhook.routes.js";
 import { PlanLimitReader } from "./application/services/PlanLimitReader.js";
+import type { ProductTracker } from "../../shared/telemetry/ProductTracker.js";
+import { NoopProductTracker } from "../../shared/telemetry/NoopProductTracker.js";
 
 export function createSubscriptionsModule(
   db: IDbClient,
   logger: ILogger,
   authenticate: RequestHandler,
   paymentProvider: PaymentProvider,
+  tracker: ProductTracker = new NoopProductTracker(),
 ): {
   planRouter: Router;
   subscriptionRouter: Router;
@@ -44,6 +47,7 @@ export function createSubscriptionsModule(
     subscriptionRepository,
     businessRepository,
     paymentProvider,
+    tracker,
   );
   const cancelUseCase = new CancelSubscriptionUseCase(subscriptionRepository, planRepository, paymentProvider);
   const listPaymentsUseCase = new ListSubscriptionPaymentsUseCase(paymentRepository);
