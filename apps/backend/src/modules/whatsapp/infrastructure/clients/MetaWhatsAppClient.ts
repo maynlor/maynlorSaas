@@ -1,4 +1,5 @@
 import { apiHttpError } from "../../../../shared/http/apiHttpError.js";
+import { toMetaRecipient } from "./metaRecipient.js";
 import type {
   WhatsAppClient,
   WhatsAppMediaFile,
@@ -34,7 +35,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
         },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          to,
+          to: toMetaRecipient(to),
           type: "text",
           text: { body },
         }),
@@ -66,7 +67,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
         },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          to,
+          to: toMetaRecipient(to),
           type: "interactive",
           interactive: {
             type: "button",
