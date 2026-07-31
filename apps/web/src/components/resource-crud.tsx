@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState, PageHeader, SectionGuide, Skeleton } from "@/components/ui/page";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export interface FieldDef {
@@ -24,10 +26,16 @@ export interface ColumnDef<T> {
 
 interface ResourceCrudProps<T extends { id: string }> {
   title: string;
+  /** Para qué sirve esta sección, en una frase que entienda quien recién llega. */
+  description: string;
   endpoint: string;
   fields: FieldDef[];
   columns: ColumnDef<T>[];
+  emptyTitle: string;
   emptyMessage: string;
+  /** Pasos concretos para dejar la sección útil. */
+  guideSteps: { title: string; detail: string }[];
+  guideTip?: string;
 }
 
 type FormValues = Record<string, string | boolean>;
@@ -55,10 +63,14 @@ function toPayload(fields: FieldDef[], values: FormValues): Record<string, unkno
 
 export function ResourceCrud<T extends { id: string }>({
   title,
+  description,
   endpoint,
   fields,
   columns,
+  emptyTitle,
   emptyMessage,
+  guideSteps,
+  guideTip,
 }: ResourceCrudProps<T>) {
   const [items, setItems] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
@@ -136,15 +148,18 @@ export function ResourceCrud<T extends { id: string }>({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <span className="text-sm text-muted-foreground">{total} en total</span>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title={title}
+        description={description}
+        actions={<Badge variant="muted">{total} en total</Badge>}
+      />
+
+      <SectionGuide steps={guideSteps} tip={guideTip} />
 
       <Card>
         <CardHeader>
-          <CardTitle>{editingId ? "Editar" : "Agregar nuevo"}</CardTitle>
+          <CardTitle>{editingId ? "Editar registro" : "Agregar nuevo"}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
@@ -164,7 +179,7 @@ export function ResourceCrud<T extends { id: string }>({
                     <input
                       id={field.name}
                       type="checkbox"
-                      className="h-4 w-4"
+                      className="h-5 w-5 cursor-pointer accent-[hsl(262_83%_62%)]"
                       checked={Boolean(values[field.name])}
                       onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.checked }))}
                     />
@@ -183,8 +198,8 @@ export function ResourceCrud<T extends { id: string }>({
               </div>
             ))}
             <div className="flex gap-2 sm:col-span-2">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear"}
+              <Button type="submit" loading={saving}>
+                {editingId ? "Guardar cambios" : "Crear"}
               </Button>
               {editingId && (
                 <Button type="button" variant="outline" onClick={cancelEdit}>
@@ -200,9 +215,13 @@ export function ResourceCrud<T extends { id: string }>({
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <p className="p-6 text-sm text-muted-foreground">Cargando…</p>
+            <div className="space-y-3 p-6">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           ) : items.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">{emptyMessage}</p>
+            <EmptyState title={emptyTitle} description={emptyMessage} />
           ) : (
             <Table>
               <TableHeader>
@@ -221,12 +240,13 @@ export function ResourceCrud<T extends { id: string }>({
                     ))}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" className="h-8 px-3" onClick={() => startEdit(item)}>
+                        <Button size="sm" variant="outline" onClick={() => startEdit(item)}>
                           Editar
                         </Button>
                         <Button
-                          variant="destructive"
-                          className="h-8 px-3"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                           onClick={() => void remove(item.id)}
                         >
                           Eliminar

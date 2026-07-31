@@ -30,20 +30,20 @@ export class WhatsAppConversationSender implements ConversationChannelSender {
       // El canal `api` es la consola de prueba del panel: no hay a dónde
       // entregar el mensaje, y fingir que se envió sería mentirle al negocio.
       throw new ValidationError(
-        `Cannot deliver a manual reply over the "${input.channel}" channel; only WhatsApp conversations can be answered from the panel.`,
+        `Solo se puede responder desde el panel en conversaciones de WhatsApp (esta es del canal "${input.channel}").`,
       );
     }
 
     const business = await this.businessRepository.findById(input.businessId);
     if (!business?.whatsappPhoneNumberId) {
       throw new ValidationError(
-        "This business has no WhatsApp number linked; connect one in Settings before replying.",
+        "Todavía no vinculaste un número de WhatsApp. Conectalo en Configuración para poder responder.",
       );
     }
 
     const client = await this.clientRepository.findById(input.businessId, input.clientId);
     if (!client?.phone) {
-      throw new ValidationError("The customer has no phone number on record.");
+      throw new ValidationError("Este cliente no tiene un teléfono cargado, así que no hay a dónde enviarle el mensaje.");
     }
 
     await this.whatsAppClient.sendTextMessage(

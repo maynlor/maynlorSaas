@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Callout, PageHeader, SectionGuide } from "@/components/ui/page";
 
 interface KnowledgeDocument {
   id: string;
@@ -98,16 +99,34 @@ export default function KnowledgeDocumentsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Documentos de conocimiento</h1>
-        <p className="text-sm text-muted-foreground">
-          Cargá catálogos, manuales o políticas en texto libre o PDF. El asistente los busca por
-          significado para responder preguntas que no cubren tus productos, servicios o FAQ.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Documentos"
+        description="Catálogos, manuales, políticas o cualquier texto largo. El asistente los busca por significado, así responde preguntas que no cubren tus productos, servicios ni las FAQ."
+      />
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <SectionGuide
+        steps={[
+          {
+            title: "Subí lo que ya tenés escrito",
+            detail:
+              "Un PDF de catálogo, las condiciones de garantía, el manual de un producto. No hace falta reescribir nada: se usa tal cual está.",
+          },
+          {
+            title: "Usá esto para lo largo, no para lo puntual",
+            detail:
+              "Si la respuesta entra en dos líneas, cargala como pregunta frecuente: es más precisa. Los documentos sirven para contenido extenso donde la respuesta está en algún párrafo.",
+          },
+          {
+            title: "Poné títulos que digan de qué se trata",
+            detail:
+              "\"Política de devoluciones 2026\" ayuda más que \"Documento 3\", tanto para vos como para el asistente.",
+          },
+        ]}
+        tip="Un PDF escaneado como imagen no sirve: solo se puede leer el texto seleccionable. Si no podés copiar texto del PDF, pegalo a mano como texto libre."
+      />
+
+      {error && <Callout tone="warning">{error}</Callout>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -118,7 +137,7 @@ export default function KnowledgeDocumentsPage() {
           <CardContent>
             <form className="space-y-3" onSubmit={(e) => void submitText(e)}>
               <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="h-11 w-full rounded-md border border-border bg-surface-raised px-3.5 text-sm transition-colors hover:border-border-strong focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 placeholder="Título (ej. Catálogo 2026)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -126,7 +145,7 @@ export default function KnowledgeDocumentsPage() {
                 maxLength={200}
               />
               <textarea
-                className="h-32 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="h-32 w-full rounded-md border border-border bg-surface-raised px-3.5 py-2.5 text-sm leading-relaxed transition-colors hover:border-border-strong focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 placeholder="Pegá el contenido acá"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -147,7 +166,7 @@ export default function KnowledgeDocumentsPage() {
           <CardContent>
             <form className="space-y-3" onSubmit={(e) => void submitPdf(e)}>
               <input
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="h-11 w-full rounded-md border border-border bg-surface-raised px-3.5 text-sm transition-colors hover:border-border-strong focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 placeholder="Título (ej. Manual de usuario)"
                 value={pdfTitle}
                 onChange={(e) => setPdfTitle(e.target.value)}
@@ -158,7 +177,7 @@ export default function KnowledgeDocumentsPage() {
                 ref={fileInputRef}
                 type="file"
                 accept="application/pdf"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="h-11 w-full rounded-md border border-border bg-surface-raised px-3.5 text-sm transition-colors hover:border-border-strong focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 required
               />
               <Button type="submit" className="w-full" disabled={submitting === "pdf"}>

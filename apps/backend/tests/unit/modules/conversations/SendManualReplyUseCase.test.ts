@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { SendManualReplyUseCase } from "@modules/conversations/application/use-cases/SendManualReplyUseCase.js";
+import { InfrastructureError, ValidationError } from "@shared/errors/AppError.js";
 import { Conversation } from "@modules/conversations/domain/Conversation.js";
 import type { IConversationRepository } from "@modules/conversations/application/repositories/IConversationRepository.js";
 import type { IMessageRepository } from "@modules/conversations/application/repositories/IMessageRepository.js";
@@ -118,5 +119,42 @@ describe("SendManualReplyUseCase", () => {
 
     expect(result.isFailure).toBe(true);
     expect(channelSender.send).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a fixable channel problem to the person instead of hiding it", async () => {
+    // "No pudimos entregar la respuesta" no le dice a nadie qué hacer. Que
+    // falte vincular el número de WhatsApp sí se puede resolver, así que el
+    // motivo tiene que llegar a la pantalla.
+    const { conversation, conversationRepository, messageRepository, channelSender } = mocks();
+    channelSender.send = vi
+      .fn()
+      .mockRejectedValue(new ValidationError("Todavía no vinculaste un número de WhatsApp."));
+    const useCase = new SendManualReplyUseCase(
+      conversationRepository,
+      messageRepository,
+      channelSender,
+    );
+
+    const result = await useCase.execute(businessId, conversation.id, { message: "Hola" });
+
+    expect(result.isFailure).toBe(true);
+    expect(result.error).toBeInstanceOf(ValidationError);
+    expect(result.error.message).toContain("vinculaste un número de WhatsApp");
+  });
+
+  it("keeps an unexpected infrastructure failure generic for the client", async () => {
+    const { conversation, conversationRepository, messageRepository, channelSender } = mocks();
+    channelSender.send = vi.fn().mockRejectedValue(new Error("socket hang up"));
+    const useCase = new SendManualReplyUseCase(
+      conversationRepository,
+      messageRepository,
+      channelSender,
+    );
+
+    const result = await useCase.execute(businessId, conversation.id, { message: "Hola" });
+
+    expect(result.error).toBeInstanceOf(InfrastructureError);
+    expect(result.error.message).not.toContain("socket hang up");
+    expect((result.error.cause as Error).message).toBe("socket hang up");
   });
 });

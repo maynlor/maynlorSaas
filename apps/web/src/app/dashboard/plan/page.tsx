@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Callout, PageHeader, SectionGuide } from "@/components/ui/page";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -139,15 +140,33 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Plan y suscripción</h1>
-        <p className="text-sm text-muted-foreground">
-          Elegí el plan que mejor se adapta al tamaño de tu operación.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Plan y pagos"
+        description="Elegí el plan según cuántas conversaciones atendés por mes. Podés cambiarlo cuando quieras: el nuevo plan entra en vigencia al confirmarlo."
+      />
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      <SectionGuide
+        steps={[
+          {
+            title: "Mirá tu consumo real primero",
+            detail:
+              "En Resumen tenés cuánto de tu plan estás usando este mes. Cambiá de plan cuando te estés acercando al límite, no antes.",
+          },
+          {
+            title: "El límite de conversaciones es mensual",
+            detail:
+              "Se reinicia el primer día de cada mes. Los límites de productos, servicios y documentos son un tope total, no mensual.",
+          },
+          {
+            title: "Si llegás al tope, el asistente deja de tomar charlas nuevas",
+            detail:
+              "Las conversaciones que ya estaban abiertas siguen funcionando, pero un cliente nuevo se queda sin respuesta hasta el mes siguiente o hasta que subas de plan.",
+          },
+        ]}
+      />
+
+      {error && <Callout tone="warning">{error}</Callout>}
 
       {subscription?.status === "past_due" && subscription.graceEndsAt && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">

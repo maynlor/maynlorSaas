@@ -1,6 +1,5 @@
 import { Result } from "../../../../shared/result/Result.js";
-import type { AppError } from "../../../../shared/errors/AppError.js";
-import { InfrastructureError, NotFoundError } from "../../../../shared/errors/AppError.js";
+import { AppError, InfrastructureError, NotFoundError } from "../../../../shared/errors/AppError.js";
 import { Message } from "../../domain/Message.js";
 import type { IConversationRepository } from "../repositories/IConversationRepository.js";
 import type { IMessageRepository } from "../repositories/IMessageRepository.js";
@@ -53,6 +52,14 @@ export class SendManualReplyUseCase {
         text: input.message,
       });
     } catch (err) {
+      // Un 4xx del canal es algo que quien atiende puede arreglar —falta
+      // vincular el número de WhatsApp, el cliente no tiene teléfono— así que
+      // el motivo se propaga tal cual en vez de esconderse detrás de un
+      // "no se pudo entregar" genérico. Los 5xx sí se envuelven: el detalle
+      // interno viaja en `cause`, para los logs, no para la respuesta HTTP.
+      if (err instanceof AppError && err.statusCode < 500) {
+        return Result.fail(err);
+      }
       return Result.fail(
         new InfrastructureError("Could not deliver the reply to the customer", undefined, {
           cause: err,

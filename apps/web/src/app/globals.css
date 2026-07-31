@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-muted text-foreground antialiased;
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Un foco visible es lo único que hace navegable el panel con teclado.
+     `focus-visible` y no `focus` para no dibujarlo en cada clic con el mouse. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Sobre fondo oscuro, la selección por defecto de algunos navegadores deja
+     el texto ilegible. */
+  ::selection {
+    @apply bg-primary/40 text-foreground;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-2 border-solid border-transparent bg-border-strong bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50 bg-clip-content;
+  }
+}
+
+@layer utilities {
+  /* Resplandor sutil de marca para los fondos de hero y cabeceras. */
+  .bg-aurora {
+    background-image:
+      radial-gradient(60rem 30rem at 15% -10%, hsl(262 83% 62% / 0.22), transparent 60%),
+      radial-gradient(45rem 25rem at 90% 0%, hsl(217 91% 60% / 0.18), transparent 55%);
+  }
+
+  .text-gradient {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+}
+
+/* Quien pidió menos movimiento no debería recibir animaciones de entrada. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

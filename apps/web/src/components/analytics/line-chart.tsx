@@ -53,7 +53,7 @@ export function LineChart({ title, data }: LineChartProps) {
       <div className="relative">
         {hovered && (
           <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-background px-2 py-1 text-xs shadow-sm"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-surface-raised px-2 py-1 text-xs shadow-card"
             style={{ left: `${(hovered.x / WIDTH) * 100}%`, top: "-4px" }}
           >
             <span className="font-medium text-foreground">{hovered.count}</span>{" "}
@@ -74,12 +74,12 @@ export function LineChart({ title, data }: LineChartProps) {
             x2={WIDTH - PADDING_X}
             y1={HEIGHT - PADDING_Y}
             y2={HEIGHT - PADDING_Y}
-            stroke="hsl(214 32% 91%)"
+            stroke="hsl(230 20% 18%)"
             strokeWidth={1}
           />
 
-          <path d={areaPath} fill="hsl(222 47% 11%)" fillOpacity={0.06} stroke="none" />
-          <path d={linePath} fill="none" stroke="hsl(222 47% 11%)" strokeWidth={2} strokeLinecap="round" />
+          <path d={areaPath} fill="hsl(262 83% 62%)" fillOpacity={0.14} stroke="none" />
+          <path d={linePath} fill="none" stroke="hsl(262 83% 62%)" strokeWidth={2} strokeLinecap="round" />
 
           {hovered && (
             <>
@@ -88,11 +88,18 @@ export function LineChart({ title, data }: LineChartProps) {
                 x2={hovered.x}
                 y1={PADDING_Y / 2}
                 y2={HEIGHT - PADDING_Y}
-                stroke="hsl(215 16% 47%)"
+                stroke="hsl(225 16% 72%)"
                 strokeWidth={1}
                 strokeDasharray="3 3"
               />
-              <circle cx={hovered.x} cy={hovered.y} r={4} fill="hsl(222 47% 11%)" stroke="white" strokeWidth={2} />
+              <circle
+                cx={hovered.x}
+                cy={hovered.y}
+                r={4}
+                fill="hsl(262 83% 62%)"
+                stroke="hsl(230 35% 5%)"
+                strokeWidth={2}
+              />
             </>
           )}
 
