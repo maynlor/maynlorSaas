@@ -220,6 +220,11 @@ export class ReceiveWhatsAppMessageUseCase {
     } catch (err) {
       this.logger.error("Failed to send the WhatsApp reply", {
         businessId: business.id,
+        // Sin el destinatario, un rechazo de Meta por "número no permitido" no
+        // se puede contrastar contra su lista de autorizados: el formato del
+        // número (el 9 de los móviles argentinos, por ejemplo) es justamente lo
+        // que suele no coincidir.
+        to: input.fromPhone,
         reason: err instanceof Error ? err.message : String(err),
       });
       // La respuesta se generó pero el cliente no la recibió. Se deja
