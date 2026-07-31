@@ -25,6 +25,7 @@ import { createSearchProductsTool } from "./modules/products/application/tools/S
 import { createServicesModule } from "./modules/services/services.module.js";
 import { createSearchServicesTool } from "./modules/services/application/tools/SearchServicesTool.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
+import { createAnalyticsModule } from "./modules/analytics/analytics.module.js";
 import { createSearchFaqsTool } from "./modules/knowledge/application/tools/SearchFaqsTool.js";
 import { createSearchKnowledgeDocumentsTool } from "./modules/knowledge/application/tools/SearchKnowledgeDocumentsTool.js";
 import { createConversationsModule } from "./modules/conversations/conversations.module.js";
@@ -132,6 +133,7 @@ export function createApp(
   const services = createServicesModule(db, auth.authenticate, subscriptions.planLimitReader);
   const aiProvider = createAIProvider(aiConfig, aiProviderOverride);
   const knowledge = createKnowledgeModule(db, auth.authenticate, subscriptions.planLimitReader, aiProvider);
+  const analytics = createAnalyticsModule(db, auth.authenticate, subscriptions.planLimitReader);
   const memory = createMemoryModule(db, auth.authenticate);
   const conversations = createConversationsModule(
     db,
@@ -164,6 +166,7 @@ export function createApp(
       { path: "/products", router: products.router },
       { path: "/services", router: services.router },
       { path: "/faqs", router: knowledge.faqRouter },
+      { path: "/analytics", router: analytics.router },
       { path: "/knowledge-documents", router: knowledge.documentRouter },
       { path: "/conversations", router: conversations.router },
       { path: "/webhooks/whatsapp", router: whatsapp.router },

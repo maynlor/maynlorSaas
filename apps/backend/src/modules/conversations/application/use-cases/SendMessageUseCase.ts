@@ -1,4 +1,5 @@
 import { Result } from "../../../../shared/result/Result.js";
+import { startOfCurrentMonth } from "../../../../shared/date/startOfCurrentMonth.js";
 import type { AppError } from "../../../../shared/errors/AppError.js";
 import {
   InfrastructureError,
@@ -21,11 +22,6 @@ import type { SendMessageInputDTO, SendMessageOutputDTO } from "../dtos/SendMess
 const HISTORY_LIMIT = 1000;
 
 export type AIToolsFactory = (businessId: string, clientId: string) => AITool[];
-
-function startOfCurrentMonth(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
 
 export class SendMessageUseCase {
   constructor(
