@@ -54,6 +54,7 @@ function mocks() {
   const messageRepository: IMessageRepository = {
     save: vi.fn().mockResolvedValue(undefined),
     findByConversationId: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    findRecentByConversationId: vi.fn().mockResolvedValue([]),
   };
   const aiProvider: AIProvider = {
     generateText: vi.fn().mockResolvedValue({ text: "¡Hola! ¿En qué puedo ayudarte?" }),
@@ -176,9 +177,7 @@ describe("SendMessageUseCase", () => {
       role: "user",
       content: "Mensaje anterior",
     });
-    messageRepository.findByConversationId = vi
-      .fn()
-      .mockResolvedValue({ items: [priorMessage], total: 1 });
+    messageRepository.findRecentByConversationId = vi.fn().mockResolvedValue([priorMessage]);
 
     const useCase = new SendMessageUseCase(
       businessRepository,
@@ -204,6 +203,47 @@ describe("SendMessageUseCase", () => {
         ],
       }),
     );
+  });
+
+  it("asks for a bounded window of recent history, not the whole conversation", async () => {
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    } = mocks();
+    const conversation = Conversation.create({ businessId, clientId: "c1" });
+    conversationRepository.findById = vi.fn().mockResolvedValue(conversation);
+
+    const useCase = new SendMessageUseCase(
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      messageRepository,
+      aiProvider,
+      planLimitReader,
+    );
+
+    await useCase.execute(businessId, {
+      message: "Hola",
+      conversationId: conversation.id,
+    });
+
+    // En WhatsApp la conversación no se cierra nunca. Mandar el historial
+    // entero hacía que el costo creciera con el cuadrado de su largo, y al
+    // pasar los 1000 mensajes la paginación desde el principio le daba al
+    // modelo los más viejos y ninguno de los recientes.
+    expect(messageRepository.findByConversationId).not.toHaveBeenCalled();
+    expect(messageRepository.findRecentByConversationId).toHaveBeenCalledWith(
+      businessId,
+      conversation.id,
+      expect.any(Number),
+    );
+    const limit = vi.mocked(messageRepository.findRecentByConversationId).mock.calls[0]?.[2];
+    expect(limit).toBeGreaterThan(0);
+    expect(limit).toBeLessThanOrEqual(100);
   });
 
   it("fails with ValidationError when neither conversationId nor clientId are given", async () => {

@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
+import {
+  InfrastructureError,
+  PlanLimitExceededError,
+} from "@shared/errors/AppError.js";
 import { ReceiveWhatsAppMessageUseCase } from "@modules/whatsapp/application/use-cases/ReceiveWhatsAppMessageUseCase.js";
 import { Business } from "@modules/businesses/domain/Business.js";
 import { Client } from "@modules/clients/domain/Client.js";
@@ -10,6 +14,7 @@ import type { IConversationRepository } from "@modules/conversations/application
 import type { SendMessageUseCase } from "@modules/conversations/application/use-cases/SendMessageUseCase.js";
 import type { WhatsAppClient } from "@modules/whatsapp/application/providers/WhatsAppClient.js";
 import type { AIProvider } from "@modules/ai/application/providers/AIProvider.js";
+import type { IInboundMessageRepository } from "@modules/whatsapp/application/repositories/IInboundMessageRepository.js";
 import type { ILogger } from "@shared/logger/Logger.js";
 
 function buildBusiness() {
@@ -61,6 +66,11 @@ function mocks() {
       .fn()
       .mockResolvedValue({ buffer: Buffer.from("audio-bytes"), mimeType: "audio/ogg" }),
   };
+  const inboundMessageRepository: IInboundMessageRepository = {
+    claim: vi.fn().mockResolvedValue(true),
+    markCompleted: vi.fn().mockResolvedValue(undefined),
+    markFailed: vi.fn().mockResolvedValue(undefined),
+  };
   const aiProvider: AIProvider = {
     generateText: vi.fn(),
     transcribeAudio: vi.fn().mockResolvedValue("Quiero saber el horario"),
@@ -76,6 +86,7 @@ function mocks() {
     sendMessageUseCase,
     whatsAppClient,
     aiProvider,
+    inboundMessageRepository,
   };
 }
 
@@ -88,6 +99,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
     businessRepository.findByWhatsAppPhoneNumberId = vi.fn().mockResolvedValue(null);
 
@@ -98,10 +110,11 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
-    await useCase.execute({ phoneNumberId: "unknown", fromPhone: "+549111", messageText: "Hola" });
+    await useCase.execute({ externalId: `wamid.${crypto.randomUUID()}`, phoneNumberId: "unknown", fromPhone: "+549111", messageText: "Hola" });
 
     expect(clientRepository.findByPhone).not.toHaveBeenCalled();
     expect(sendMessageUseCase.execute).not.toHaveBeenCalled();
@@ -117,6 +130,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
 
     const useCase = new ReceiveWhatsAppMessageUseCase(
@@ -126,10 +140,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       messageText: "Hola",
@@ -145,8 +161,14 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
   });
 
   it("sends interactive buttons instead of plain text when the reply includes quickReplies", async () => {
-    const { businessRepository, clientRepository, conversationRepository, whatsAppClient, aiProvider } =
-      mocks();
+    const {
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      whatsAppClient,
+      aiProvider,
+      inboundMessageRepository,
+    } = mocks();
     const sendMessageUseCase = {
       execute: vi.fn().mockResolvedValue(
         Result.ok({ conversationId: "conv-1", reply: "¿Cuál preferís?", quickReplies: ["Rojo", "Azul"] }),
@@ -160,10 +182,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       messageText: "Hola",
@@ -191,6 +215,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
     const client = buildClient(business.id);
     clientRepository.findByPhone = vi.fn().mockResolvedValue(client);
@@ -208,10 +233,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       messageText: "¿Tienen stock?",
@@ -232,6 +259,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
     sendMessageUseCase.execute = vi
       .fn()
@@ -244,10 +272,11 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
-    await useCase.execute({ phoneNumberId: "pn-1", fromPhone: "+5491100000000", messageText: "Hola" });
+    await useCase.execute({ externalId: `wamid.${crypto.randomUUID()}`, phoneNumberId: "pn-1", fromPhone: "+5491100000000", messageText: "Hola" });
 
     expect(whatsAppClient.sendTextMessage).not.toHaveBeenCalled();
   });
@@ -260,6 +289,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
     whatsAppClient.sendTextMessage = vi.fn().mockRejectedValue(new Error("network down"));
 
@@ -270,11 +300,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await expect(
-      useCase.execute({ phoneNumberId: "pn-1", fromPhone: "+5491100000000", messageText: "Hola" }),
+      useCase.execute({ externalId: `wamid.${crypto.randomUUID()}`, phoneNumberId: "pn-1", fromPhone: "+5491100000000", messageText: "Hola" }),
     ).resolves.toBeUndefined();
   });
 
@@ -287,6 +318,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
 
     const useCase = new ReceiveWhatsAppMessageUseCase(
@@ -296,10 +328,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       media: { type: "audio", mediaId: "media-1" },
@@ -322,6 +356,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
 
     const useCase = new ReceiveWhatsAppMessageUseCase(
@@ -331,10 +366,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       media: { type: "image", mediaId: "media-2", caption: "¿Tienen esta remera?" },
@@ -357,8 +394,16 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
   });
 
   it("describes an image with no caption using vision alone", async () => {
-    const { business, businessRepository, clientRepository, conversationRepository, sendMessageUseCase, whatsAppClient, aiProvider } =
-      mocks();
+    const {
+      business,
+      businessRepository,
+      clientRepository,
+      conversationRepository,
+      sendMessageUseCase,
+      whatsAppClient,
+      aiProvider,
+      inboundMessageRepository,
+    } = mocks();
     const useCase = new ReceiveWhatsAppMessageUseCase(
       businessRepository,
       clientRepository,
@@ -366,10 +411,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       media: { type: "image", mediaId: "media-3" },
@@ -390,6 +437,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
     vi.mocked(aiProvider.describeImage).mockRejectedValue(new Error("OpenAI vision request failed"));
 
@@ -400,10 +448,12 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
     await useCase.execute({
+      externalId: `wamid.${crypto.randomUUID()}`,
       phoneNumberId: "pn-1",
       fromPhone: "+5491100000000",
       media: { type: "image", mediaId: "media-4", caption: "¿Tienen esta remera?" },
@@ -423,6 +473,7 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
     } = mocks();
 
     const useCase = new ReceiveWhatsAppMessageUseCase(
@@ -432,11 +483,110 @@ describe("ReceiveWhatsAppMessageUseCase", () => {
       sendMessageUseCase,
       whatsAppClient,
       aiProvider,
+      inboundMessageRepository,
       noopLogger,
     );
 
-    await useCase.execute({ phoneNumberId: "pn-1", fromPhone: "+5491100000000" });
+    await useCase.execute({ externalId: `wamid.${crypto.randomUUID()}`, phoneNumberId: "pn-1", fromPhone: "+5491100000000" });
 
     expect(sendMessageUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  describe("deduplication", () => {
+    function build(overrides: Partial<ReturnType<typeof mocks>> = {}) {
+      const m = { ...mocks(), ...overrides };
+      const useCase = new ReceiveWhatsAppMessageUseCase(
+        m.businessRepository,
+        m.clientRepository,
+        m.conversationRepository,
+        m.sendMessageUseCase,
+        m.whatsAppClient,
+        m.aiProvider,
+        m.inboundMessageRepository,
+        noopLogger,
+      );
+      return { ...m, useCase };
+    }
+
+    it("does no work at all when the message was already claimed", async () => {
+      const { useCase, inboundMessageRepository, sendMessageUseCase, whatsAppClient } = build();
+      inboundMessageRepository.claim = vi.fn().mockResolvedValue(false);
+
+      await useCase.execute({
+        externalId: "wamid.dup",
+        phoneNumberId: "pn-1",
+        fromPhone: "+5491100000000",
+        messageText: "Hola",
+      });
+
+      expect(sendMessageUseCase.execute).not.toHaveBeenCalled();
+      expect(whatsAppClient.sendTextMessage).not.toHaveBeenCalled();
+      expect(inboundMessageRepository.markCompleted).not.toHaveBeenCalled();
+      expect(inboundMessageRepository.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("marks the message completed once the reply was sent", async () => {
+      const { useCase, inboundMessageRepository } = build();
+
+      await useCase.execute({
+        externalId: "wamid.ok",
+        phoneNumberId: "pn-1",
+        fromPhone: "+5491100000000",
+        messageText: "Hola",
+      });
+
+      expect(inboundMessageRepository.markCompleted).toHaveBeenCalledWith("wamid.ok");
+      expect(inboundMessageRepository.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("marks the message failed when generating the reply fails, so Meta's retry can reprocess it", async () => {
+      const sendMessageUseCase = {
+        execute: vi.fn().mockResolvedValue(Result.fail(new InfrastructureError("AI down"))),
+      } as unknown as SendMessageUseCase;
+      const { useCase, inboundMessageRepository } = build({ sendMessageUseCase });
+
+      await useCase.execute({
+        externalId: "wamid.transient",
+        phoneNumberId: "pn-1",
+        fromPhone: "+5491100000000",
+        messageText: "Hola",
+      });
+
+      expect(inboundMessageRepository.markFailed).toHaveBeenCalledWith("wamid.transient");
+      expect(inboundMessageRepository.markCompleted).not.toHaveBeenCalled();
+    });
+
+    it("marks the message completed when the plan limit was hit, since retrying cannot help", async () => {
+      const sendMessageUseCase = {
+        execute: vi.fn().mockResolvedValue(Result.fail(new PlanLimitExceededError("no quota"))),
+      } as unknown as SendMessageUseCase;
+      const { useCase, inboundMessageRepository } = build({ sendMessageUseCase });
+
+      await useCase.execute({
+        externalId: "wamid.overquota",
+        phoneNumberId: "pn-1",
+        fromPhone: "+5491100000000",
+        messageText: "Hola",
+      });
+
+      expect(inboundMessageRepository.markCompleted).toHaveBeenCalledWith("wamid.overquota");
+      expect(inboundMessageRepository.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("marks the message failed when an unexpected error escapes, instead of leaving it stuck", async () => {
+      const { useCase, inboundMessageRepository, businessRepository } = build();
+      businessRepository.findByWhatsAppPhoneNumberId = vi
+        .fn()
+        .mockRejectedValue(new Error("database unreachable"));
+
+      await useCase.execute({
+        externalId: "wamid.boom",
+        phoneNumberId: "pn-1",
+        fromPhone: "+5491100000000",
+        messageText: "Hola",
+      });
+
+      expect(inboundMessageRepository.markFailed).toHaveBeenCalledWith("wamid.boom");
+    });
   });
 });

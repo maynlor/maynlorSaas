@@ -1,4 +1,6 @@
 import type { ILogger } from "../../../../shared/logger/Logger.js";
+import { PlanLimitExceededError } from "../../../../shared/errors/AppError.js";
+import type { IInboundMessageRepository } from "../repositories/IInboundMessageRepository.js";
 import type { IBusinessRepository } from "../../../businesses/application/repositories/IBusinessRepository.js";
 import type { IClientRepository } from "../../../clients/application/repositories/IClientRepository.js";
 import { Client } from "../../../clients/domain/Client.js";
@@ -19,6 +21,8 @@ export interface WhatsAppIncomingMedia {
 }
 
 export interface ReceiveWhatsAppMessageInput {
+  /** El `wamid` de Meta: identifica el mensaje para no procesarlo dos veces. */
+  externalId: string;
   phoneNumberId: string;
   fromPhone: string;
   contactName?: string | undefined;
@@ -77,6 +81,14 @@ async function resolveMessageText(
 }
 
 /**
+ * Distingue un final definitivo de uno reintentable. Un fallo transitorio (la
+ * IA caída, la red) tiene que poder reprocesarse cuando Meta reintente; una
+ * condición permanente (un `phone_number_id` desconocido) no, o se repetiría
+ * en cada reintento sin cambiar nada.
+ */
+type ProcessingOutcome = "done" | "retryable";
+
+/**
  * Never throws — the webhook controller must always ack Meta with 200
  * regardless of what happens here. Every failure path is logged, not raised.
  */
@@ -88,10 +100,43 @@ export class ReceiveWhatsAppMessageUseCase {
     private readonly sendMessageUseCase: SendMessageUseCase,
     private readonly whatsAppClient: WhatsAppClient,
     private readonly aiProvider: AIProvider,
+    private readonly inboundMessageRepository: IInboundMessageRepository,
     private readonly logger: ILogger,
   ) {}
 
   async execute(input: ReceiveWhatsAppMessageInput): Promise<void> {
+    const claimed = await this.inboundMessageRepository.claim(
+      input.externalId,
+      input.phoneNumberId,
+    );
+    if (!claimed) {
+      this.logger.info("Ignoring an already-seen WhatsApp message", {
+        externalId: input.externalId,
+      });
+      return;
+    }
+
+    let outcome: ProcessingOutcome;
+    try {
+      outcome = await this.process(input);
+    } catch (err) {
+      // El caso de uso no debe tirar, pero si algo inesperado escapa, el
+      // mensaje tiene que quedar reintentable en vez de morir como "en proceso".
+      this.logger.error("Unexpected failure processing a WhatsApp message", {
+        externalId: input.externalId,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      outcome = "retryable";
+    }
+
+    if (outcome === "done") {
+      await this.inboundMessageRepository.markCompleted(input.externalId);
+    } else {
+      await this.inboundMessageRepository.markFailed(input.externalId);
+    }
+  }
+
+  private async process(input: ReceiveWhatsAppMessageInput): Promise<ProcessingOutcome> {
     const business = await this.businessRepository.findByWhatsAppPhoneNumberId(
       input.phoneNumberId,
     );
@@ -99,7 +144,7 @@ export class ReceiveWhatsAppMessageUseCase {
       this.logger.warn("Received WhatsApp message for an unknown phone_number_id", {
         phoneNumberId: input.phoneNumberId,
       });
-      return;
+      return "done";
     }
 
     const messageText = await resolveMessageText(
@@ -112,7 +157,7 @@ export class ReceiveWhatsAppMessageUseCase {
       this.logger.warn("Received an unsupported WhatsApp message; ignoring", {
         businessId: business.id,
       });
-      return;
+      return "done";
     }
 
     let client = await this.clientRepository.findByPhone(business.id, input.fromPhone);
@@ -127,7 +172,8 @@ export class ReceiveWhatsAppMessageUseCase {
           businessId: business.id,
           reason: clientResult.error.message,
         });
-        return;
+        // Los datos del contacto no van a cambiar entre reintentos.
+        return "done";
       }
       client = clientResult.value;
       await this.clientRepository.save(client);
@@ -151,7 +197,9 @@ export class ReceiveWhatsAppMessageUseCase {
         businessId: business.id,
         reason: result.error.message,
       });
-      return;
+      // Quedarse sin cupo de plan no se arregla reintentando: el límite sigue
+      // agotado. Cualquier otro fallo (IA caída, red) sí puede ser pasajero.
+      return result.error instanceof PlanLimitExceededError ? "done" : "retryable";
     }
 
     try {
@@ -174,6 +222,11 @@ export class ReceiveWhatsAppMessageUseCase {
         businessId: business.id,
         reason: err instanceof Error ? err.message : String(err),
       });
+      // La respuesta se generó pero el cliente no la recibió. Se deja
+      // reintentable: que quede sin respuesta es peor que regenerarla.
+      return "retryable";
     }
+
+    return "done";
   }
 }

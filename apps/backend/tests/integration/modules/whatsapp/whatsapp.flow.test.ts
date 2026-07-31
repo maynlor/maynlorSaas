@@ -8,6 +8,7 @@ import { createApp } from "../../../../src/app.js";
 import type { ILogger } from "@shared/logger/Logger.js";
 import type { AIProvider } from "@modules/ai/application/providers/AIProvider.js";
 import type { WhatsAppClient } from "@modules/whatsapp/application/providers/WhatsAppClient.js";
+import type { IBackgroundRunner } from "@shared/background/BackgroundRunner.js";
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -56,7 +57,7 @@ function buildIncomingMessagePayload(phoneNumberId: string, from: string, text: 
               metadata: { display_phone_number: "15550001111", phone_number_id: phoneNumberId },
               contacts: [{ profile: { name: "Juan Pérez" }, wa_id: from }],
               messages: [
-                { from, id: `wamid-${Date.now()}`, timestamp: "0", type: "text", text: { body: text } },
+                { from, id: `wamid-${crypto.randomUUID()}`, timestamp: "0", type: "text", text: { body: text } },
               ],
             },
           },
@@ -87,7 +88,7 @@ function buildIncomingButtonReplyPayload(
               messages: [
                 {
                   from,
-                  id: `wamid-${Date.now()}`,
+                  id: `wamid-${crypto.randomUUID()}`,
                   timestamp: "0",
                   type: "interactive",
                   interactive: { type: "button_reply", button_reply: { id: buttonId, title: buttonTitle } },
@@ -104,6 +105,17 @@ function buildIncomingButtonReplyPayload(
 describe("WhatsApp webhook", () => {
   let db: PgDbClient;
   let app: ReturnType<typeof createApp>;
+
+  /**
+   * El webhook le contesta 200 a Meta antes de procesar, así que la respuesta
+   * HTTP no significa que el trabajo haya terminado. `whenIdle()` espera al
+   * procesamiento diferido sin volverlo síncrono.
+   */
+  async function postWebhook(payload: object) {
+    const res = await request(app).post("/webhooks/whatsapp").send(payload);
+    await (app.locals["backgroundRunner"] as IBackgroundRunner).whenIdle();
+    return res;
+  }
 
   beforeAll(async () => {
     const migrationPool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -131,7 +143,7 @@ describe("WhatsApp webhook", () => {
     aiCallCount = 0;
     sentMessages.length = 0;
     await db.query(
-      "TRUNCATE messages, conversations, clients, users, businesses RESTART IDENTITY CASCADE",
+      "TRUNCATE whatsapp_inbound_messages, messages, conversations, clients, users, businesses RESTART IDENTITY CASCADE",
     );
   });
 
@@ -172,7 +184,7 @@ describe("WhatsApp webhook", () => {
     expect(linkRes.status).toBe(200);
 
     const firstPayload = buildIncomingMessagePayload("pn-123", "5491100000000", "Hola");
-    const firstRes = await request(app).post("/webhooks/whatsapp").send(firstPayload);
+    const firstRes = await postWebhook(firstPayload);
     expect(firstRes.status).toBe(200);
 
     expect(sentMessages).toHaveLength(1);
@@ -192,7 +204,7 @@ describe("WhatsApp webhook", () => {
     const conversationId = conversationsRes.body.items[0].id as string;
 
     const secondPayload = buildIncomingMessagePayload("pn-123", "5491100000000", "¿Tienen stock?");
-    const secondRes = await request(app).post("/webhooks/whatsapp").send(secondPayload);
+    const secondRes = await postWebhook(secondPayload);
     expect(secondRes.status).toBe(200);
 
     expect(sentMessages).toHaveLength(2);
@@ -224,7 +236,7 @@ describe("WhatsApp webhook", () => {
       .send({ phoneNumberId: "pn-456" });
 
     const payload = buildIncomingButtonReplyPayload("pn-456", "5491100000001", "opcion_1", "Rojo");
-    const res = await request(app).post("/webhooks/whatsapp").send(payload);
+    const res = await postWebhook(payload);
     expect(res.status).toBe(200);
 
     expect(sentMessages).toHaveLength(1);
@@ -242,9 +254,45 @@ describe("WhatsApp webhook", () => {
     expect(messagesRes.body.items[0].content).toBe("Rojo");
   });
 
+  it("ignores a redelivery of the same message instead of replying twice", async () => {
+    const registerRes = await request(app)
+      .post("/auth/register")
+      .send({
+        business: { name: "Acme 3", email: "biz3@acme.com", slug: "acme-3" },
+        user: { email: "owner3@acme.com", password: "supersecret" },
+      });
+    const token = registerRes.body.token as string;
+
+    await request(app)
+      .patch("/businesses/me")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ phoneNumberId: "pn-789" });
+
+    // Exactamente el mismo payload dos veces: es lo que hace Meta cuando da la
+    // primera entrega por fallida (por ejemplo, porque el ack tardó demasiado).
+    const payload = buildIncomingMessagePayload("pn-789", "5491100000002", "Hola");
+    expect((await postWebhook(payload)).status).toBe(200);
+    expect((await postWebhook(payload)).status).toBe(200);
+
+    // Sin deduplicación, el cliente recibía la respuesta dos veces, se pagaban
+    // dos llamadas al LLM y quedaban cuatro mensajes en vez de dos.
+    expect(sentMessages).toHaveLength(1);
+    expect(aiCallCount).toBe(1);
+
+    const conversationsRes = await request(app)
+      .get("/conversations")
+      .set("Authorization", `Bearer ${token}`);
+    expect(conversationsRes.body.total).toBe(1);
+
+    const messagesRes = await request(app)
+      .get(`/conversations/${conversationsRes.body.items[0].id}/messages`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(messagesRes.body.items).toHaveLength(2);
+  });
+
   it("always responds 200 even when the phone_number_id is unknown", async () => {
     const payload = buildIncomingMessagePayload("unknown-number", "5491100000000", "Hola");
-    const res = await request(app).post("/webhooks/whatsapp").send(payload);
+    const res = await postWebhook(payload);
 
     expect(res.status).toBe(200);
     expect(sentMessages).toHaveLength(0);

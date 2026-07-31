@@ -21,7 +21,17 @@ import type { SendMessageInputDTO, SendMessageOutputDTO } from "../dtos/SendMess
 import type { ProductTracker } from "../../../../shared/telemetry/ProductTracker.js";
 import { NoopProductTracker } from "../../../../shared/telemetry/NoopProductTracker.js";
 
-const HISTORY_LIMIT = 1000;
+/**
+ * Cuántos mensajes previos se le mandan al modelo como contexto.
+ *
+ * Mandar la conversación entera hacía que el costo creciera con el cuadrado de
+ * su largo: en un canal como WhatsApp la conversación no se cierra nunca, así
+ * que en el mensaje 300 se pagaban 300 mensajes de contexto para generar una
+ * línea de respuesta. Lo que quede fuera de la ventana no se pierde: para eso
+ * están las herramientas `guardar_memoria` / `buscar_memoria`, que guardan lo
+ * que vale la pena recordar en vez de arrastrar todo.
+ */
+const HISTORY_WINDOW = 40;
 
 export type AIToolsFactory = (businessId: string, clientId: string) => AITool[];
 
@@ -92,10 +102,11 @@ export class SendMessageUseCase {
       return Result.fail(new NotFoundError(`Business ${businessId} not found`));
     }
 
-    const history = await this.messageRepository.findByConversationId(businessId, conversation.id, {
-      limit: HISTORY_LIMIT,
-      offset: 0,
-    });
+    const history = await this.messageRepository.findRecentByConversationId(
+      businessId,
+      conversation.id,
+      HISTORY_WINDOW,
+    );
 
     const userMessage = Message.create({
       conversationId: conversation.id,
@@ -115,7 +126,7 @@ export class SendMessageUseCase {
       canRememberClient: toolNames.has("buscar_memoria"),
     });
     const chatMessages: ChatMessage[] = [
-      ...history.items.map((m) => ({ role: m.role, content: m.content })),
+      ...history.map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: input.message },
     ];
 

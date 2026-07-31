@@ -40,4 +40,26 @@ export class PostgresMessageRepository implements IMessageRepository {
 
     return { items, total };
   }
+
+  async findRecentByConversationId(
+    businessId: string,
+    conversationId: string,
+    limit: number,
+  ): Promise<Message[]> {
+    // Se traen en DESC (así el LIMIT se queda con los más nuevos, y el índice
+    // (conversation_id, created_at) lo resuelve sin ordenamiento extra) y se
+    // invierten en memoria, porque el modelo necesita orden cronológico.
+    // El desempate por `id` hace determinista el corte cuando dos mensajes
+    // comparten `created_at`.
+    const result = await this.db.query<MessageRow>(
+      `SELECT *
+       FROM messages
+       WHERE business_id = $1 AND conversation_id = $2
+       ORDER BY created_at DESC, id DESC
+       LIMIT $3`,
+      [businessId, conversationId, limit],
+    );
+
+    return result.rows.map((row) => MessageFactory.toDomain(row)).reverse();
+  }
 }

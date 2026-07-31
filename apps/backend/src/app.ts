@@ -41,6 +41,7 @@ import { createBuscarMemoriaTool } from "./modules/memory/application/tools/Busc
 import type { ProductTracker } from "./shared/telemetry/ProductTracker.js";
 import { NoopProductTracker } from "./shared/telemetry/NoopProductTracker.js";
 import { PostHogTracker } from "./shared/telemetry/PostHogTracker.js";
+import { BackgroundRunner } from "./shared/background/BackgroundRunner.js";
 
 export interface PostHogModuleConfig {
   apiKey: string | undefined;
@@ -174,12 +175,18 @@ export function createApp(
     ],
     tracker,
   );
+  // Expuesto en `app.locals` para que los tests puedan esperar a que termine el
+  // procesamiento diferido del webhook de WhatsApp sin volverlo síncrono.
+  const backgroundRunner = new BackgroundRunner(logger);
+  app.locals["backgroundRunner"] = backgroundRunner;
+
   const whatsapp = createWhatsAppModule(
     db,
     logger,
     whatsappConfig,
     conversations.sendMessageUseCase,
     aiProvider,
+    backgroundRunner,
     whatsAppClientOverride,
   );
 
