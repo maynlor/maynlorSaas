@@ -28,7 +28,7 @@ services:
     # de Postgres (dos builds simultáneos no aplicarían la misma migración a
     # la vez). Al volver a plan starter, se puede mover de nuevo a
     # preDeployCommand si se prefiere separar build de migración.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter backend build && pnpm --filter backend migrate:prod
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter backend build && pnpm --filter backend migrate:prod
     startCommand: pnpm --filter backend start
     healthCheckPath: /health
     envVars:
@@ -92,7 +92,7 @@ services:
     plan: free
     region: oregon
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter web build
     startCommand: pnpm --filter web start
     envVars:
       - key: NODE_ENV
