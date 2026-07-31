@@ -16,7 +16,13 @@ async function main(): Promise<void> {
       nodeEnv: config.nodeEnv,
       cookieSameSite: config.authCookieSameSite,
     },
-    { openaiApiKey: config.openaiApiKey, openaiModel: config.openaiModel },
+    {
+      provider: config.aiProvider,
+      openaiApiKey: config.openaiApiKey,
+      openaiModel: config.openaiModel,
+      geminiApiKey: config.geminiApiKey,
+      geminiModel: config.geminiModel,
+    },
     undefined,
     {
       verifyToken: config.whatsappVerifyToken,

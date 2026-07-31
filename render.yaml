@@ -55,10 +55,21 @@ services:
       # Origen exacto del frontend, para CORS con credenciales.
       - key: WEB_ORIGIN
         sync: false
+      # Qué proveedor de IA se usa: "openai" o "gemini". El resto del sistema
+      # depende solo de la interfaz AIProvider, así que se cambia acá sin tocar
+      # código. Ojo: los embeddings de un proveedor no sirven contra los de
+      # otro, así que cambiarlo obliga a reindexar los documentos del RAG.
+      - key: AI_PROVIDER
+        value: openai
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: GEMINI_API_KEY
+        sync: false
+      # gemini-2.0-flash tiene limit: 0 en el free tier; este sí tiene cuota.
+      - key: GEMINI_MODEL
+        value: gemini-flash-lite-latest
       - key: WHATSAPP_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ACCESS_TOKEN

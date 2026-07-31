@@ -4,6 +4,13 @@ import type {
   GenerateTextResult,
 } from "../../application/providers/AIProvider.js";
 import type { AITool } from "../../application/tools/AITool.js";
+import {
+  QUICK_REPLIES_TOOL_NAME,
+  QUICK_REPLIES_TOOL_DESCRIPTION,
+  QUICK_REPLIES_TOOL_PARAMETERS,
+  parseQuickRepliesArgs,
+} from "../../application/tools/QuickRepliesTool.js";
+import { aiHttpError } from "./aiHttpError.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
@@ -17,42 +24,15 @@ const VISION_PROMPT =
   "Si contiene texto legible (carteles, etiquetas, precios, documentos), transcribilo textualmente. " +
   "Si no hay texto visible, no lo menciones.";
 
-// Límite real de WhatsApp para botones de respuesta rápida: como máximo 3.
-const MAX_QUICK_REPLIES = 3;
-const QUICK_REPLIES_TOOL_NAME = "responder_con_opciones";
-
-/**
- * A diferencia de las AITool del negocio (buscar_productos, etc.), esta
- * herramienta no se ejecuta y devuelve resultado al modelo — es "terminal":
- * cuando el modelo la llama, ahí termina la respuesta. Está siempre
- * disponible, independiente de qué tools de negocio se hayan inyectado, para
- * que cualquier canal (hoy WhatsApp) pueda ofrecer botones sin que cada
- * módulo tenga que registrar su propia versión.
- */
-const QUICK_REPLIES_TOOL_SCHEMA = {
+/** Siempre disponible, independiente de qué tools de negocio se hayan inyectado. */
+const QUICK_REPLIES_TOOL_SCHEMA: OpenAIToolSchema = {
   type: "function",
   function: {
     name: QUICK_REPLIES_TOOL_NAME,
-    description:
-      "Terminá tu respuesta ofreciendo hasta 3 opciones cortas para que el cliente elija con un toque, " +
-      "en vez de escribir texto libre. Usala solo cuando tenga sentido ofrecer alternativas concretas y " +
-      "excluyentes (confirmar algo, elegir entre productos puntuales, etc.), no para cualquier respuesta.",
-    parameters: {
-      type: "object",
-      properties: {
-        mensaje: { type: "string", description: "El texto del mensaje, antes de mostrar las opciones" },
-        opciones: {
-          type: "array",
-          items: { type: "string" },
-          minItems: 1,
-          maxItems: MAX_QUICK_REPLIES,
-          description: `Hasta ${MAX_QUICK_REPLIES} opciones cortas (máximo 20 caracteres cada una)`,
-        },
-      },
-      required: ["mensaje", "opciones"],
-    },
+    description: QUICK_REPLIES_TOOL_DESCRIPTION,
+    parameters: QUICK_REPLIES_TOOL_PARAMETERS,
   },
-} as const;
+};
 
 interface OpenAIToolCall {
   id: string;
@@ -134,11 +114,7 @@ export class OpenAIProvider implements AIProvider {
 
   private parseQuickRepliesCall(toolCall: OpenAIToolCall): GenerateTextResult {
     try {
-      const args = JSON.parse(toolCall.function.arguments) as { mensaje?: string; opciones?: string[] };
-      if (!args.mensaje || !Array.isArray(args.opciones) || args.opciones.length === 0) {
-        throw new Error("invalid arguments");
-      }
-      return { text: args.mensaje, quickReplies: args.opciones.slice(0, MAX_QUICK_REPLIES) };
+      return parseQuickRepliesArgs(JSON.parse(toolCall.function.arguments) as Record<string, unknown>);
     } catch {
       throw new Error(`OpenAI returned malformed arguments for ${QUICK_REPLIES_TOOL_NAME}`);
     }
@@ -160,7 +136,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI audio transcription failed with status ${response.status}`);
+      throw await aiHttpError(response, "OpenAI audio transcription");
     }
 
     const data = (await response.json()) as { text: string };
@@ -182,7 +158,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI embeddings request failed with status ${response.status}`);
+      throw await aiHttpError(response, "OpenAI embeddings request");
     }
 
     const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
@@ -223,7 +199,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI vision request failed with status ${response.status}`);
+      throw await aiHttpError(response, "OpenAI vision request");
     }
 
     const data = (await response.json()) as OpenAIChatCompletionResponse;
@@ -252,7 +228,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API request failed with status ${response.status}`);
+      throw await aiHttpError(response, "OpenAI API request");
     }
 
     const data = (await response.json()) as OpenAIChatCompletionResponse;

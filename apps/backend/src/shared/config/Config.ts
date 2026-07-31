@@ -10,8 +10,14 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("2h"),
   // "none" solo si el frontend vive en otro sitio registrable que el backend.
   AUTH_COOKIE_SAMESITE: z.enum(["lax", "none", "strict"]).default("lax"),
+  // Qué proveedor de IA se usa. El resto del sistema no se entera: todo pasa
+  // por la interfaz AIProvider. Cambiar esto NO reindexa los documentos del
+  // RAG, y los embeddings de un proveedor no sirven contra los de otro.
+  AI_PROVIDER: z.enum(["openai", "gemini"]).default("openai"),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-flash-lite-latest"),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
@@ -44,8 +50,11 @@ export const config = {
   jwtSecret: parsed.data.JWT_SECRET,
   jwtExpiresIn: parsed.data.JWT_EXPIRES_IN,
   authCookieSameSite: parsed.data.AUTH_COOKIE_SAMESITE,
+  aiProvider: parsed.data.AI_PROVIDER,
   openaiApiKey: parsed.data.OPENAI_API_KEY,
   openaiModel: parsed.data.OPENAI_MODEL,
+  geminiApiKey: parsed.data.GEMINI_API_KEY,
+  geminiModel: parsed.data.GEMINI_MODEL,
   whatsappVerifyToken: parsed.data.WHATSAPP_VERIFY_TOKEN,
   whatsappAccessToken: parsed.data.WHATSAPP_ACCESS_TOKEN,
   whatsappAppSecret: parsed.data.WHATSAPP_APP_SECRET,
