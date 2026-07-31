@@ -1,3 +1,4 @@
+import { apiHttpError } from "../../../../shared/http/apiHttpError.js";
 import type {
   WhatsAppClient,
   WhatsAppMediaFile,
@@ -41,7 +42,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
     );
 
     if (!response.ok) {
-      throw new Error(`WhatsApp API request failed with status ${response.status}`);
+      throw await apiHttpError(response, "WhatsApp send text message");
     }
   }
 
@@ -82,7 +83,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
     );
 
     if (!response.ok) {
-      throw new Error(`WhatsApp API request failed with status ${response.status}`);
+      throw await apiHttpError(response, "WhatsApp send buttons message");
     }
   }
 
@@ -96,7 +97,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
       { headers: { Authorization: `Bearer ${this.accessToken}` } },
     );
     if (!metadataResponse.ok) {
-      throw new Error(`WhatsApp media metadata request failed with status ${metadataResponse.status}`);
+      throw await apiHttpError(metadataResponse, "WhatsApp media metadata request");
     }
     const metadata = (await metadataResponse.json()) as MetaMediaMetadataResponse;
 
@@ -104,7 +105,7 @@ export class MetaWhatsAppClient implements WhatsAppClient {
       headers: { Authorization: `Bearer ${this.accessToken}` },
     });
     if (!fileResponse.ok) {
-      throw new Error(`WhatsApp media download failed with status ${fileResponse.status}`);
+      throw await apiHttpError(fileResponse, "WhatsApp media download");
     }
 
     const buffer = Buffer.from(await fileResponse.arrayBuffer());

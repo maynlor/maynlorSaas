@@ -10,7 +10,7 @@ import {
   QUICK_REPLIES_TOOL_PARAMETERS,
   parseQuickRepliesArgs,
 } from "../../application/tools/QuickRepliesTool.js";
-import { aiHttpError } from "./aiHttpError.js";
+import { apiHttpError } from "../../../../shared/http/apiHttpError.js";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -189,7 +189,7 @@ export class GeminiProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "Gemini embeddings request");
+      throw await apiHttpError(response, "Gemini embeddings request");
     }
 
     const data = (await response.json()) as GeminiEmbedContentResponse;
@@ -233,7 +233,7 @@ export class GeminiProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "Gemini API request");
+      throw await apiHttpError(response, "Gemini API request");
     }
 
     const data = (await response.json()) as GeminiGenerateContentResponse;

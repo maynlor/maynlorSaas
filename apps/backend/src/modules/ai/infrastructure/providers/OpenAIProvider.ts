@@ -10,7 +10,7 @@ import {
   QUICK_REPLIES_TOOL_PARAMETERS,
   parseQuickRepliesArgs,
 } from "../../application/tools/QuickRepliesTool.js";
-import { aiHttpError } from "./aiHttpError.js";
+import { apiHttpError } from "../../../../shared/http/apiHttpError.js";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
@@ -136,7 +136,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "OpenAI audio transcription");
+      throw await apiHttpError(response, "OpenAI audio transcription");
     }
 
     const data = (await response.json()) as { text: string };
@@ -158,7 +158,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "OpenAI embeddings request");
+      throw await apiHttpError(response, "OpenAI embeddings request");
     }
 
     const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
@@ -199,7 +199,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "OpenAI vision request");
+      throw await apiHttpError(response, "OpenAI vision request");
     }
 
     const data = (await response.json()) as OpenAIChatCompletionResponse;
@@ -228,7 +228,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw await aiHttpError(response, "OpenAI API request");
+      throw await apiHttpError(response, "OpenAI API request");
     }
 
     const data = (await response.json()) as OpenAIChatCompletionResponse;
