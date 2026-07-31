@@ -140,8 +140,14 @@ export class SendMessageUseCase {
       });
       reply = result.text;
       quickReplies = result.quickReplies;
-    } catch {
-      return Result.fail(new InfrastructureError("AI provider request failed"));
+    } catch (err) {
+      // La causa se adjunta en vez de descartarse: el proveedor ya explica si
+      // fue cuota agotada, clave inválida o modelo inexistente, y ese detalle
+      // es la diferencia entre un log accionable y uno inútil. Viaja en
+      // `cause`, así que no se filtra en la respuesta HTTP.
+      return Result.fail(
+        new InfrastructureError("AI provider request failed", undefined, { cause: err }),
+      );
     }
 
     const assistantMessage = Message.create({

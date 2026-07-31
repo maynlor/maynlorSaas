@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
+import { describeError } from "../../shared/errors/describeError.js";
 import { mapErrorToHttpResponse } from "../../shared/errors/HttpErrorMapper.js";
 import type { ILogger } from "../../shared/logger/Logger.js";
 
@@ -33,7 +34,7 @@ export function createErrorHandler(logger: ILogger) {
     } else if (!(err instanceof Error)) {
       logger.error("Unknown error thrown", { err });
     } else {
-      logger.error(err.message, { stack: err.stack });
+      logger.error(describeError(err), { stack: err.stack });
     }
 
     mapErrorToHttpResponse(err, res);

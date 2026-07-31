@@ -1,5 +1,6 @@
 import type { ILogger } from "../../../../shared/logger/Logger.js";
 import { PlanLimitExceededError } from "../../../../shared/errors/AppError.js";
+import { describeError } from "../../../../shared/errors/describeError.js";
 import type { IInboundMessageRepository } from "../repositories/IInboundMessageRepository.js";
 import type { IBusinessRepository } from "../../../businesses/application/repositories/IBusinessRepository.js";
 import type { IClientRepository } from "../../../clients/application/repositories/IClientRepository.js";
@@ -195,7 +196,7 @@ export class ReceiveWhatsAppMessageUseCase {
     if (result.isFailure) {
       this.logger.error("Failed to generate a reply for an incoming WhatsApp message", {
         businessId: business.id,
-        reason: result.error.message,
+        reason: describeError(result.error),
       });
       // Quedarse sin cupo de plan no se arregla reintentando: el límite sigue
       // agotado. Cualquier otro fallo (IA caída, red) sí puede ser pasajero.

@@ -2,11 +2,18 @@ export abstract class AppError extends Error {
   abstract readonly code: string;
   abstract readonly statusCode: number;
 
+  /**
+   * `details` viaja en la respuesta HTTP; `options.cause` **no**. Ahí va el
+   * error original cuando se lo traduce a uno de dominio: el motivo real de un
+   * 500 sirve para diagnosticar, pero no es algo que deba salir hacia el
+   * cliente de la API.
+   */
   constructor(
     message: string,
     readonly details?: unknown,
+    options?: { cause?: unknown },
   ) {
-    super(message);
+    super(message, options);
     this.name = new.target.name;
   }
 }
